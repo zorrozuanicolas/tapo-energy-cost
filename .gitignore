@@ -1,0 +1,24 @@
+# Secrets and local environment
+.env
+
+# Runtime data: SQLite database and its backups
+data/
+
+# Python
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+dist/
+
+# Editor and personal tool settings
+.vscode/
+.claude/settings.local.json
+
+# Local working notes (session handoff, not part of the project)
+PROGRESS.md
+CLAUDE.local.md
