@@ -5,6 +5,7 @@ description = "Backend that measures Tapo smart plug consumption and prices it w
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-settings>=2.16.1",
+    "tzdata>=2026.5",
 ]
 
 [dependency-groups]
@@ -33,3 +34,4 @@ select = ["E", "F", "I", "W", "B", "UP", "SIM"]
 [tool.mypy]
 strict = true
 files = ["app", "tests"]
+plugins = ["pydantic.mypy"]
