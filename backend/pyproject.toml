@@ -1,0 +1,35 @@
+[project]
+name = "tapo-energy-cost"
+version = "0.1.0"
+description = "Backend that measures Tapo smart plug consumption and prices it with the UTE tariff"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic-settings>=2.16.1",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+[tool.uv]
+# An application deployed as a Docker image, not a library: nothing to build or install.
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 115
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: import order, B: likely bugs, UP: modern syntax, SIM: simplifications.
+select = ["E", "F", "I", "W", "B", "UP", "SIM"]
+
+[tool.mypy]
+strict = true
+files = ["app", "tests"]
