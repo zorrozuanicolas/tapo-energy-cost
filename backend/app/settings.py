@@ -1,8 +1,9 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +16,15 @@ class Settings(BaseSettings):
     timezone: str = "America/Montevideo"
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
+    # SQLAlchemy URL of the database. The `+aiosqlite` part picks the async SQLite driver.
+    database_url: str = "sqlite+aiosqlite:///data/tapo.db"
+
+    # Folder with tariffs.yaml, holidays.yaml and outlets.yaml (relative to backend/).
+    config_dir: Path = Path("../config")
+
+    # Raw power readings older than this many days are deleted; hourly totals are kept.
+    raw_retention_days: int = Field(default=60, gt=0)
 
     @field_validator("timezone")
     @classmethod
