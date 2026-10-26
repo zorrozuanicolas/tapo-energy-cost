@@ -4,8 +4,11 @@ version = "0.1.0"
 description = "Backend that measures Tapo smart plug consumption and prices it with the UTE tariff"
 requires-python = ">=3.12"
 dependencies = [
+    "aiosqlite>=0.22.1",
+    "alembic>=1.20.1",
     "pydantic-settings>=2.16.1",
     "pyyaml>=6.0.3",
+    "sqlalchemy>=2.1.6",
     "tzdata>=2026.5",
 ]
 
