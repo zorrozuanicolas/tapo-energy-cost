@@ -1,0 +1,11 @@
+# The Tapo smart plugs to monitor (P110, P110M or P115).
+# `slug` is a stable identifier: do not change it after you have collected data.
+# `name` is what the app shows. `ip` should be a fixed address (reserve it in your router).
+# `model` is optional: p110 (default) or p115.
+outlets:
+  - slug: computadora
+    name: Computadora
+    ip: 192.168.1.20
+  - slug: aire-acondicionado
+    name: Aire Acondicionado
+    ip: 192.168.1.15
