@@ -1,0 +1,23 @@
+# UTE "Plan Inteligente Hogares" - Tarifa Residencial Triple Horario.
+#
+# Each entry applies from `valid_from` until the next entry starts, so past costs are
+# always calculated with the tariff that was in force at that moment. When UTE publishes
+# new prices (or you change your Punta window or the VAT), ADD a new entry. Do not edit
+# old ones, otherwise your history is recalculated with the wrong prices.
+#
+# rates:       $/kWh WITHOUT VAT, as published by UTE
+# vat:         multiplier applied to every rate (1.22 = 22 % VAT)
+# peak_window: Punta hours, local time. start is inclusive, end is exclusive
+#              (17 -> 21 means 17:00 to 21:00). Punta only applies on business days.
+#
+# Valle is always 00:00-07:00. Everything else is Llano.
+tariffs:
+  - valid_from: 2026-01-01
+    vat: 1.22
+    peak_window:
+      start: 17
+      end: 21
+    rates:
+      punta: 12.034
+      llano: 5.172
+      valle: 2.443
