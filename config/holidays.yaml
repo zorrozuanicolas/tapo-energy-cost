@@ -1,0 +1,22 @@
+# Holidays on which UTE does not apply the Punta window (those hours are billed as Llano).
+# Weekends are handled automatically, so only list weekday holidays here.
+#
+# Add one block per year when UTE publishes the list ("Feriados 20XX" on the
+# Plan Inteligente Hogares page). If a year is missing, the app can warn that
+# the holidays for that year are not loaded.
+2026:
+  - { date: 2026-01-01, name: Año Nuevo }
+  - { date: 2026-01-06, name: Día de Reyes }
+  - { date: 2026-02-16, name: Carnaval }
+  - { date: 2026-02-17, name: Carnaval }
+  - { date: 2026-04-02, name: Semana de turismo }
+  - { date: 2026-04-03, name: Semana de turismo }
+  - { date: 2026-04-19, name: Desembarco de los 33 Orientales }
+  - { date: 2026-05-01, name: Día de los Trabajadores }
+  - { date: 2026-05-18, name: Batalla de las Piedras }
+  - { date: 2026-06-19, name: Natalicio de José Gervasio Artigas }
+  - { date: 2026-07-18, name: Jura de la Constitución }
+  - { date: 2026-08-25, name: Declaratoria de la Independencia }
+  - { date: 2026-10-12, name: Día de la Raza }
+  - { date: 2026-11-02, name: Día de los Difuntos }
+  - { date: 2026-12-25, name: Navidad }
