@@ -29,4 +29,12 @@ frontend, Docker Compose. The project is being rebuilt step by step as a portfol
 
 ## Commands
 
-Added as each part of the stack is built.
+Backend (run from `backend/`; uv is the package manager):
+
+- `uv sync`: install dependencies from `uv.lock`
+- `uv run pytest`: run the tests
+- `uv run ruff check`: lint
+- `uv run ruff format`: format (`--check` to only verify)
+- `uv run mypy`: type check (strict)
+
+Frontend and Docker commands are added as those parts are built.
