@@ -14,6 +14,7 @@ def test_defaults() -> None:
     assert settings.database_url == "sqlite+aiosqlite:///data/tapo.db"
     assert settings.config_dir == Path("../config")
     assert settings.raw_retention_days == 60
+    assert settings.max_gap_seconds == 60
 
 
 def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -22,6 +23,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///other.db")
     monkeypatch.setenv("CONFIG_DIR", "/etc/tapo")
     monkeypatch.setenv("RAW_RETENTION_DAYS", "7")
+    monkeypatch.setenv("MAX_GAP_SECONDS", "120")
 
     settings = Settings(_env_file=None)
 
@@ -30,6 +32,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.database_url == "sqlite+aiosqlite:///other.db"
     assert settings.config_dir == Path("/etc/tapo")
     assert settings.raw_retention_days == 7
+    assert settings.max_gap_seconds == 120
 
 
 @pytest.mark.parametrize("days", ["0", "-5"])
@@ -37,6 +40,14 @@ def test_non_positive_retention_is_rejected(monkeypatch: pytest.MonkeyPatch, day
     monkeypatch.setenv("RAW_RETENTION_DAYS", days)
 
     with pytest.raises(ValidationError, match="raw_retention_days"):
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize("seconds", ["0", "-5"])
+def test_non_positive_max_gap_is_rejected(monkeypatch: pytest.MonkeyPatch, seconds: str) -> None:
+    monkeypatch.setenv("MAX_GAP_SECONDS", seconds)
+
+    with pytest.raises(ValidationError, match="max_gap_seconds"):
         Settings(_env_file=None)
 
 

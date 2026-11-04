@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # Raw power readings older than this many days are deleted; hourly totals are kept.
     raw_retention_days: int = Field(default=60, gt=0)
 
+    # Longest interval between two samples that still counts as continuous. With the planned
+    # 10 s polling, 60 s tolerates a few missed polls but not a real outage.
+    max_gap_seconds: int = Field(default=60, gt=0)
+
     @field_validator("timezone")
     @classmethod
     def _timezone_exists(cls, value: str) -> str:
