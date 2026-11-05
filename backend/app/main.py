@@ -7,18 +7,20 @@ this module reads no settings and touches no files.
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from typing import Annotated, cast
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .billing import BillingConfig, load_billing_config
-from .db import make_engine, make_session_factory
+from .billing import BANDS, BillingConfig, load_billing_config
+from .db import HourlyEnergy, make_engine, make_session_factory
 from .migrate import upgrade_database_async
 from .outlets import OutletInfo, load_outlets, sync_outlets
-from .schemas import HealthOut, OutletOut
+from .schemas import HealthOut, OutletOut, RangeOut, TariffOut
 from .settings import Settings
 
 
@@ -45,6 +47,21 @@ async def get_session(state: StateDep) -> AsyncIterator[AsyncSession]:
     """Dependency: one database session per request."""
     async with state.session_factory() as session:
         yield session
+
+
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+def get_now() -> datetime:
+    """Dependency: the current time, aware and in UTC. Tests override it to fix the clock."""
+    return datetime.now(UTC)
+
+
+NowDep = Annotated[datetime, Depends(get_now)]
+
+
+def _outlets_out(state: AppState) -> list[OutletOut]:
+    return [OutletOut(id=o.id, slug=o.slug, name=o.name) for o in state.outlets]
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -77,6 +94,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/health")
     async def health(state: StateDep) -> HealthOut:
-        return HealthOut(outlets=[OutletOut(id=o.id, slug=o.slug, name=o.name) for o in state.outlets])
+        return HealthOut(outlets=_outlets_out(state))
+
+    @app.get("/api/outlets")
+    async def list_outlets(state: StateDep) -> list[OutletOut]:
+        return _outlets_out(state)
+
+    @app.get("/api/range")
+    async def data_range(state: StateDep, session: SessionDep) -> RangeOut:
+        """The first local day with data, so the history navigator knows how far back it can go."""
+        first = (await session.execute(select(func.min(HourlyEnergy.hour_start)))).scalar_one()
+        return RangeOut(earliest=None if first is None else first.astimezone(state.tz).date())
+
+    @app.get("/api/tariff")
+    async def get_tariff(
+        state: StateDep, now: NowDep, day: Annotated[date | None, Query(alias="date")] = None
+    ) -> TariffOut:
+        """The tariff in force on a local date (today by default)."""
+        day = day or now.astimezone(state.tz).date()
+        tariff = state.billing.tariff_for(day)
+        if tariff is None:
+            raise HTTPException(status_code=404, detail=f"No tariff configured for {day}")
+        return TariffOut(
+            valid_from=tariff.valid_from,
+            vat=tariff.vat,
+            peak_start=tariff.peak_start,
+            peak_end=tariff.peak_end,
+            rates={band: tariff.rate(band) for band in BANDS},
+            rates_with_vat={band: round(tariff.rate_with_vat(band), 4) for band in BANDS},
+        )
 
     return app
