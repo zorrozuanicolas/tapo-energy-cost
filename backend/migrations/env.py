@@ -10,7 +10,9 @@ from app.settings import get_settings
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep the loggers that already exist (the app's, uvicorn's): by default fileConfig silences
+    # them, which matters now that the app runs the migrations itself at startup.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # The URL comes from Settings. alembic.ini only holds a placeholder, so a URL set beforehand
 # (a test, for example) is kept and the placeholder is replaced.
