@@ -20,6 +20,11 @@ class OutletOut(_Schema):
     name: str
 
 
+class HealthOut(_Schema):
+    status: Literal["ok"] = "ok"
+    outlets: list[OutletOut]
+
+
 class OutletValue(_Schema):
     kwh: float
     cost: float  # pesos, VAT included

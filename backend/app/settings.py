@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # 10 s polling, 60 s tolerates a few missed polls but not a real outage.
     max_gap_seconds: int = Field(default=60, gt=0)
 
+    # Browser origins allowed to call the API. Only needed in development, when the Vite dev server
+    # (another port) calls the API; in production one server serves both. Set as a JSON list.
+    cors_origins: list[str] = ["http://localhost:5173"]
+
     @field_validator("timezone")
     @classmethod
     def _timezone_exists(cls, value: str) -> str:
