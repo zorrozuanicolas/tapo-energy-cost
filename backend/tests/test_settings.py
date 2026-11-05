@@ -15,6 +15,7 @@ def test_defaults() -> None:
     assert settings.config_dir == Path("../config")
     assert settings.raw_retention_days == 60
     assert settings.max_gap_seconds == 60
+    assert settings.cors_origins == ["http://localhost:5173"]
 
 
 def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -24,6 +25,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("CONFIG_DIR", "/etc/tapo")
     monkeypatch.setenv("RAW_RETENTION_DAYS", "7")
     monkeypatch.setenv("MAX_GAP_SECONDS", "120")
+    monkeypatch.setenv("CORS_ORIGINS", '["http://a.example", "http://b.example"]')
 
     settings = Settings(_env_file=None)
 
@@ -33,6 +35,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.config_dir == Path("/etc/tapo")
     assert settings.raw_retention_days == 7
     assert settings.max_gap_seconds == 120
+    assert settings.cors_origins == ["http://a.example", "http://b.example"]
 
 
 @pytest.mark.parametrize("days", ["0", "-5"])
