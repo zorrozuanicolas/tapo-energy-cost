@@ -4,6 +4,7 @@ import sqlite3
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -188,3 +189,89 @@ def test_tariff_with_a_malformed_date_is_rejected(tmp_path: Path) -> None:
         return await client.get("/api/tariff", params={"date": "yesterday"})
 
     assert run_app(tmp_path, work).status_code == 422
+
+
+# 2026-06-15 is a Monday and not a holiday. In Montevideo (UTC-3), 06:00 UTC is 03:00 (valle)
+# and 21:00 UTC is 18:00 (punta).
+JUNE_15_HOURS = [datetime(2026, 6, 15, 6, tzinfo=UTC), datetime(2026, 6, 15, 21, tzinfo=UTC)]
+
+
+def get_consumption(tmp_path: Path, params: dict[str, str], **kwargs: Any) -> httpx.Response:
+    async def work(client: httpx.AsyncClient) -> httpx.Response:
+        return await client.get("/api/consumption", params=params)
+
+    return run_app(tmp_path, work, **kwargs)
+
+
+def test_consumption_prices_the_stored_hours(tmp_path: Path) -> None:
+    tariff = load_billing_config(CONFIG_DIR).tariff_for(date(2026, 6, 15))
+    assert tariff is not None
+    expected_cost = tariff.rate_with_vat("valle") + tariff.rate_with_vat("punta")
+
+    response = get_consumption(
+        tmp_path,
+        {"granularity": "day", "from": "2026-06-15", "to": "2026-06-16"},
+        hours=JUNE_15_HOURS,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["granularity"] == "day"
+    assert body["timezone"] == "America/Montevideo"
+    assert len(body["buckets"]) == 1
+    day_value = body["buckets"][0]["outlets"]["1"]  # the seeded hours belong to outlet 1
+    assert day_value["kwh"] == pytest.approx(2)
+    assert day_value["cost"] == pytest.approx(expected_cost, abs=1e-3)
+    assert body["totals"]["1"] == day_value
+    assert body["totals"]["2"] == {"kwh": 0, "cost": 0}
+    assert body["warnings"] == []
+
+
+def test_consumption_json_has_string_outlet_keys_and_local_offsets(tmp_path: Path) -> None:
+    body = get_consumption(
+        tmp_path, {"granularity": "day", "from": "2026-06-15", "to": "2026-06-16"}, hours=JUNE_15_HOURS
+    ).json()
+
+    slugs = [o["slug"] for o in body["outlets"]]
+    assert slugs == [o.slug for o in load_outlets(CONFIG_DIR)]
+    assert set(body["totals"]) == {str(o["id"]) for o in body["outlets"]}
+    bucket = body["buckets"][0]
+    assert set(bucket["outlets"]) == set(body["totals"])
+    assert bucket["start"] == "2026-06-15T00:00:00-03:00"
+    assert bucket["end"] == "2026-06-16T00:00:00-03:00"
+
+
+def test_consumption_marks_the_bucket_that_contains_now(tmp_path: Path) -> None:
+    now = datetime(2026, 6, 15, 12, tzinfo=UTC)
+    body = get_consumption(
+        tmp_path, {"granularity": "day", "from": "2026-06-14", "to": "2026-06-17"}, now=now
+    ).json()
+    assert [b["partial"] for b in body["buckets"]] == [False, True, False]
+
+
+def test_consumption_reports_missing_holidays_as_a_warning(tmp_path: Path) -> None:
+    body = get_consumption(tmp_path, {"granularity": "day", "from": "2027-01-04", "to": "2027-01-05"}).json()
+    assert body["warnings"] == [{"code": "missing_holidays", "year": 2027}]
+
+
+def test_consumption_with_an_invalid_range_is_a_400(tmp_path: Path) -> None:
+    same_day = get_consumption(tmp_path, {"granularity": "day", "from": "2026-06-15", "to": "2026-06-15"})
+    too_long = get_consumption(tmp_path, {"granularity": "hour", "from": "2026-06-01", "to": "2026-06-20"})
+
+    assert same_day.status_code == 400
+    assert "earlier" in same_day.json()["detail"]
+    assert too_long.status_code == 400
+    assert "hour granularity" in too_long.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"granularity": "week", "from": "2026-06-15", "to": "2026-06-16"},
+        {"granularity": "day", "from": "2026-06-15"},
+        {"granularity": "day", "from": "yesterday", "to": "2026-06-16"},
+    ],
+    ids=["unknown-granularity", "missing-to", "malformed-date"],
+)
+def test_consumption_with_bad_parameters_is_a_422(tmp_path: Path, params: dict[str, str]) -> None:
+    assert get_consumption(tmp_path, params).status_code == 422

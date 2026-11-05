@@ -16,11 +16,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from .aggregation import Granularity, RangeError, consumption
 from .billing import BANDS, BillingConfig, load_billing_config
 from .db import HourlyEnergy, make_engine, make_session_factory
 from .migrate import upgrade_database_async
 from .outlets import OutletInfo, load_outlets, sync_outlets
-from .schemas import HealthOut, OutletOut, RangeOut, TariffOut
+from .schemas import ConsumptionResponse, HealthOut, OutletOut, RangeOut, TariffOut
 from .settings import Settings
 
 
@@ -105,6 +106,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """The first local day with data, so the history navigator knows how far back it can go."""
         first = (await session.execute(select(func.min(HourlyEnergy.hour_start)))).scalar_one()
         return RangeOut(earliest=None if first is None else first.astimezone(state.tz).date())
+
+    @app.get("/api/consumption")
+    async def get_consumption(
+        state: StateDep,
+        session: SessionDep,
+        now: NowDep,
+        granularity: Granularity,
+        from_: Annotated[date, Query(alias="from")],
+        to: date,
+    ) -> ConsumptionResponse:
+        """kWh and cost (VAT included) per outlet, grouped by hour, day or month.
+
+        `from` is inclusive and `to` exclusive, as local dates. For `month`, both snap to whole months.
+        """
+        try:
+            return await consumption(session, state.billing, state.tz, state.outlets, granularity, from_, to, now)
+        except RangeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/tariff")
     async def get_tariff(
