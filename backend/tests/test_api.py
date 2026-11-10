@@ -36,6 +36,7 @@ def run_app[T](
         _env_file=None,
         database_url=f"sqlite+aiosqlite:///{(tmp_path / 'api.db').as_posix()}",
         config_dir=config_dir,
+        poller_enabled=False,  # these tests are about the API; test_app_poller.py covers the poller
     )
 
     async def main() -> T:
