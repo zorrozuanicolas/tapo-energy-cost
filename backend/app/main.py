@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -21,7 +22,7 @@ from .aggregation import Granularity, RangeError, consumption
 from .billing import BANDS, BillingConfig, load_billing_config
 from .clients import make_client
 from .db import HourlyEnergy, make_engine, make_session_factory
-from .live import LiveHub
+from .live import LiveHub, live_events
 from .logs import configure_logging
 from .migrate import upgrade_database_async
 from .outlets import OutletInfo, load_outlets, sync_outlets
@@ -29,6 +30,10 @@ from .poller import Poller
 from .schemas import ConsumptionResponse, HealthOut, OutletOut, RangeOut, TariffOut
 from .settings import Settings
 from .supervisor import supervise
+
+# Idle time after which the live stream sends a comment, to keep proxies from closing the connection
+# (nginx closes an idle one after 60 s by default).
+KEEPALIVE_SECONDS = 15.0
 
 
 @dataclass(frozen=True)
@@ -146,6 +151,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return await consumption(session, state.billing, state.tz, state.outlets, granularity, from_, to, now)
         except RangeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/live")
+    async def live(state: StateDep) -> StreamingResponse:
+        """Server-sent events: the latest reading of every plug, then each new one."""
+        return StreamingResponse(
+            live_events(state.hub, KEEPALIVE_SECONDS),
+            media_type="text/event-stream",
+            # Do not cache the stream, and tell nginx not to buffer it.
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @app.get("/api/tariff")
     async def get_tariff(
