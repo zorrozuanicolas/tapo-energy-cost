@@ -44,3 +44,8 @@ select = ["E", "F", "I", "W", "B", "UP", "SIM"]
 strict = true
 files = ["app", "tests"]
 plugins = ["pydantic.mypy"]
+
+# `tapo` ships .pyi stubs but no py.typed marker, so mypy would skip them. Follow them for this package only.
+[[tool.mypy.overrides]]
+module = "tapo.*"
+follow_untyped_imports = true
