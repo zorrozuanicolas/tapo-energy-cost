@@ -54,6 +54,65 @@ def test_non_positive_max_gap_is_rejected(monkeypatch: pytest.MonkeyPatch, secon
         Settings(_env_file=None)
 
 
+def test_polling_defaults_use_mock_plugs() -> None:
+    settings = Settings(_env_file=None)
+
+    assert settings.poll_interval_seconds == 10
+    assert settings.tapo_mock is True
+    assert settings.poller_enabled is True
+    assert settings.tapo_username == ""
+    assert settings.tapo_password.get_secret_value() == ""
+
+
+@pytest.mark.parametrize("seconds", ["0", "-5"])
+def test_non_positive_poll_interval_is_rejected(monkeypatch: pytest.MonkeyPatch, seconds: str) -> None:
+    monkeypatch.setenv("POLL_INTERVAL_SECONDS", seconds)
+
+    with pytest.raises(ValidationError, match="poll_interval_seconds"):
+        Settings(_env_file=None)
+
+
+def test_max_gap_must_be_at_least_twice_the_interval(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("POLL_INTERVAL_SECONDS", "10")
+    monkeypatch.setenv("MAX_GAP_SECONDS", "19")
+
+    with pytest.raises(ValidationError, match="at least twice"):
+        Settings(_env_file=None)
+
+    monkeypatch.setenv("MAX_GAP_SECONDS", "20")
+    assert Settings(_env_file=None).max_gap_seconds == 20
+
+
+def test_real_plugs_need_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TAPO_MOCK", "false")
+
+    with pytest.raises(ValidationError, match="TAPO_USERNAME and TAPO_PASSWORD"):
+        Settings(_env_file=None)
+
+    monkeypatch.setenv("TAPO_USERNAME", "me@example.com")
+    with pytest.raises(ValidationError, match="TAPO_USERNAME and TAPO_PASSWORD"):
+        Settings(_env_file=None)  # the password is still missing
+
+    monkeypatch.setenv("TAPO_PASSWORD", "secret")
+    assert Settings(_env_file=None).tapo_password.get_secret_value() == "secret"
+
+
+def test_real_plugs_without_credentials_are_fine_when_the_poller_is_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TAPO_MOCK", "false")
+    monkeypatch.setenv("POLLER_ENABLED", "false")
+
+    assert Settings(_env_file=None).poller_enabled is False
+
+
+def test_password_is_hidden_from_repr_and_str(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TAPO_PASSWORD", "hunter2")
+
+    settings = Settings(_env_file=None)
+
+    assert "hunter2" not in repr(settings)
+    assert "hunter2" not in str(settings)
+
+
 def test_invalid_log_level_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LOG_LEVEL", "banana")
 
