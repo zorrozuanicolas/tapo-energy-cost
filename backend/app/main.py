@@ -4,6 +4,7 @@ Run it with `uvicorn app.main:create_app --factory`. There is no module-level `a
 this module reads no settings and touches no files.
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -18,11 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .aggregation import Granularity, RangeError, consumption
 from .billing import BANDS, BillingConfig, load_billing_config
+from .clients import make_client
 from .db import HourlyEnergy, make_engine, make_session_factory
+from .live import LiveHub
 from .migrate import upgrade_database_async
 from .outlets import OutletInfo, load_outlets, sync_outlets
+from .poller import Poller
 from .schemas import ConsumptionResponse, HealthOut, OutletOut, RangeOut, TariffOut
 from .settings import Settings
+from .supervisor import supervise
 
 
 @dataclass(frozen=True)
@@ -34,6 +39,7 @@ class AppState:
     billing: BillingConfig
     outlets: list[OutletInfo]
     session_factory: async_sessionmaker[AsyncSession]
+    hub: LiveHub
 
 
 def get_state(request: Request) -> AppState:
@@ -79,14 +85,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             session_factory = make_session_factory(engine)
             outlets = await sync_outlets(session_factory, configs)
+            tz = ZoneInfo(settings.timezone)
+            hub = LiveHub()
             app.state.ctx = AppState(
                 settings=settings,
-                tz=ZoneInfo(settings.timezone),
+                tz=tz,
                 billing=billing,
                 outlets=outlets,
                 session_factory=session_factory,
+                hub=hub,
             )
-            yield
+            poller_task: asyncio.Task[None] | None = None
+            if settings.poller_enabled:
+                clients = {o.id: make_client(o, i, settings, tz) for i, o in enumerate(outlets)}
+                poller = Poller(settings, session_factory, hub, clients, outlets)
+                poller_task = asyncio.create_task(supervise("poller", poller.run))
+            try:
+                yield
+            finally:
+                # Stop the poller before closing the database it writes to.
+                if poller_task is not None:
+                    poller_task.cancel()
+                    await asyncio.gather(poller_task, return_exceptions=True)
         finally:
             await engine.dispose()
 
