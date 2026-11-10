@@ -1,11 +1,14 @@
 """Response models of the REST API. They are the contract the frontend relies on."""
 
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .billing import Band
+
+if TYPE_CHECKING:
+    from .live import LiveReading  # only for the annotation: live.py imports this module
 
 
 class _Schema(BaseModel):
@@ -74,6 +77,19 @@ class TariffOut(_Schema):
     peak_end: int
     rates: dict[Band, float]  # without VAT
     rates_with_vat: dict[Band, float]
+
+
+class LiveOut(_Schema):
+    """One event of the live stream: the state of a plug at one moment."""
+
+    outlet_id: int
+    power_w: float | None  # None when the plug could not be read
+    online: bool
+    ts: datetime  # aware, UTC
+
+    @classmethod
+    def from_reading(cls, reading: "LiveReading") -> Self:
+        return cls(outlet_id=reading.outlet_id, power_w=reading.power_w, online=reading.online, ts=reading.ts)
 
 
 class RangeOut(_Schema):

@@ -1,11 +1,14 @@
+import json
 from datetime import UTC, date, datetime
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from app.live import LiveReading
 from app.schemas import (
     BucketOut,
     ConsumptionResponse,
+    LiveOut,
     MissingHolidaysWarning,
     NoTariffWarning,
     OutletValue,
@@ -65,3 +68,35 @@ def test_response_accepts_both_warning_kinds() -> None:
     first, second = response.warnings
     assert isinstance(first, MissingHolidaysWarning)
     assert isinstance(second, NoTariffWarning)
+
+
+def test_live_event_json_has_the_expected_keys() -> None:
+    event = LiveOut(outlet_id=1, power_w=42.5, online=True, ts=datetime(2026, 11, 4, 12, 0, tzinfo=UTC))
+
+    assert json.loads(event.model_dump_json()) == {
+        "outlet_id": 1,
+        "power_w": 42.5,
+        "online": True,
+        "ts": "2026-11-04T12:00:00Z",
+    }
+
+
+def test_offline_live_event_has_a_null_power() -> None:
+    event = LiveOut(outlet_id=1, power_w=None, online=False, ts=datetime(2026, 11, 4, 12, 0, tzinfo=UTC))
+
+    assert json.loads(event.model_dump_json())["power_w"] is None
+
+
+def test_live_event_copies_every_field_of_a_reading() -> None:
+    ts = datetime(2026, 11, 4, 12, 0, tzinfo=UTC)
+
+    event = LiveOut.from_reading(LiveReading(outlet_id=3, power_w=7.0, online=True, ts=ts))
+
+    assert event == LiveOut(outlet_id=3, power_w=7.0, online=True, ts=ts)
+
+
+def test_unknown_field_of_a_live_event_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        LiveOut.model_validate(
+            {"outlet_id": 1, "power_w": 1.0, "online": True, "ts": "2026-11-04T12:00:00Z", "x": 1}
+        )
