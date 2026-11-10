@@ -22,6 +22,7 @@ from .billing import BANDS, BillingConfig, load_billing_config
 from .clients import make_client
 from .db import HourlyEnergy, make_engine, make_session_factory
 from .live import LiveHub
+from .logs import configure_logging
 from .migrate import upgrade_database_async
 from .outlets import OutletInfo, load_outlets, sync_outlets
 from .poller import Poller
@@ -76,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        configure_logging(settings.log_level)
         # Read the files first: a broken config should stop the app before it touches the database.
         billing = load_billing_config(settings.config_dir)
         configs = load_outlets(settings.config_dir)
