@@ -76,4 +76,6 @@ We will read the plugs from a background task inside the API process, in `app/cl
 - Tests use fake clients, a hand-moved clock and a temporary database. A real plug is never needed, but the
   real `tapo` calls are covered only by the fake's assumptions (milliwatts from `get_energy_usage`, watts
   from `get_current_power`), so they need a manual check with a real plug.
+- The app's own logs (`tapo.*`) follow `LOG_LEVEL`, set at startup by `configure_logging`. uvicorn and
+  alembic keep their own logging setup, so the level does not change their output.
 - The SSE endpoint that serves the hub to browsers is decided separately, with PR B.
