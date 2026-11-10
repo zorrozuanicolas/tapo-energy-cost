@@ -2,8 +2,11 @@
 
 import asyncio
 import contextlib
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime
+
+from .schemas import LiveOut
 
 # How many readings a browser may fall behind before it starts missing updates.
 QUEUE_SIZE = 50
@@ -46,3 +49,34 @@ class LiveHub:
     def snapshot(self) -> list[LiveReading]:
         """The latest reading of each plug, by plug id: what a new browser gets first."""
         return [self._latest[outlet_id] for outlet_id in sorted(self._latest)]
+
+    @property
+    def subscriber_count(self) -> int:
+        return len(self._subscribers)
+
+
+def _data_frame(reading: LiveReading) -> str:
+    return f"data: {LiveOut.from_reading(reading).model_dump_json()}\n\n"
+
+
+async def live_events(hub: LiveHub, keepalive_seconds: float) -> AsyncGenerator[str, None]:
+    """The text of a Server-Sent Events stream: the snapshot, then every new reading.
+
+    When nothing arrives for `keepalive_seconds` it sends a comment line, which browsers ignore but
+    which stops proxies from closing an idle connection. Closing the generator (the client left)
+    unsubscribes from the hub.
+    """
+    # Subscribe before taking the snapshot, so a reading published in between is not lost.
+    queue = hub.subscribe()
+    try:
+        for reading in hub.snapshot():
+            yield _data_frame(reading)
+        while True:
+            try:
+                reading = await asyncio.wait_for(queue.get(), keepalive_seconds)
+            except TimeoutError:
+                yield ": keepalive\n\n"
+            else:
+                yield _data_frame(reading)
+    finally:
+        hub.unsubscribe(queue)
