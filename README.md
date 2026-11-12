@@ -44,6 +44,10 @@ TAPO_PASSWORD=<its password>
 > **Only one machine may poll the same plugs.** Do not run in real mode on your PC while another machine, such
 > as a Raspberry Pi, is already polling them.
 
+On startup, and then every 6 hours, the app also imports each plug's own hourly history (about a week), which
+fills the gaps left by outages. Raw readings older than `RAW_RETENTION_DAYS` are deleted; the hourly totals are
+kept ([why](docs/decisions/0010-pruning-and-backfill.md)).
+
 Set `POLLER_ENABLED=false` to run only the API, without reading any plug. Every setting is documented in
 [`backend/.env.example`](backend/.env.example), and the reasoning behind the design is in
 [`docs/decisions/`](docs/decisions/).
