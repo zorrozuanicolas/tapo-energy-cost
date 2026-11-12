@@ -16,13 +16,16 @@ from app.settings import Settings
 from .conftest import CONFIG_DIR
 
 
-def run_lifespan[T](tmp_path: Path, poller_enabled: bool, work: Callable[[AppState], Awaitable[T]]) -> T:
+def run_lifespan[T](
+    tmp_path: Path, poller_enabled: bool, work: Callable[[AppState], Awaitable[T]], seed_demo_days: int = 0
+) -> T:
     """Start the app (mock plugs) on a database in `tmp_path`, run `work` on its state, shut it down."""
     settings = Settings(
         _env_file=None,
         database_url=f"sqlite+aiosqlite:///{(tmp_path / 'app.db').as_posix()}",
         config_dir=CONFIG_DIR,
         poller_enabled=poller_enabled,
+        seed_demo_days=seed_demo_days,
     )
 
     async def main() -> T:
@@ -110,6 +113,32 @@ def test_the_plugs_are_not_asked_for_history_when_the_poller_is_off(
 
     async def work(state: AppState) -> int:
         await asyncio.sleep(0.3)
+        return await count_hours(state)
+
+    assert run_lifespan(tmp_path, False, work) == 0
+
+
+def test_the_demo_history_is_created_at_startup(tmp_path: Path) -> None:
+    async def work(state: AppState) -> int:
+        return await count_hours(state)
+
+    hours = run_lifespan(tmp_path, False, work, seed_demo_days=2)
+
+    assert hours == 2 * 24 * len(load_outlets(CONFIG_DIR))
+
+
+def test_the_demo_history_is_not_created_again_on_the_next_start(tmp_path: Path) -> None:
+    async def work(state: AppState) -> int:
+        return await count_hours(state)
+
+    first = run_lifespan(tmp_path, False, work, seed_demo_days=2)
+    second = run_lifespan(tmp_path, False, work, seed_demo_days=5)  # a bigger request still finds data
+
+    assert second == first
+
+
+def test_no_demo_history_is_created_by_default(tmp_path: Path) -> None:
+    async def work(state: AppState) -> int:
         return await count_hours(state)
 
     assert run_lifespan(tmp_path, False, work) == 0
