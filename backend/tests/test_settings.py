@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.settings import Settings, get_settings
+from app.settings import MAX_SEED_DAYS, Settings, get_settings
 
 
 def test_defaults() -> None:
@@ -60,6 +60,7 @@ def test_polling_defaults_use_mock_plugs() -> None:
     assert settings.poll_interval_seconds == 10
     assert settings.tapo_mock is True
     assert settings.poller_enabled is True
+    assert settings.seed_demo_days == 0
     assert settings.tapo_username == ""
     assert settings.tapo_password.get_secret_value() == ""
 
@@ -102,6 +103,38 @@ def test_real_plugs_without_credentials_are_fine_when_the_poller_is_off(monkeypa
     monkeypatch.setenv("POLLER_ENABLED", "false")
 
     assert Settings(_env_file=None).poller_enabled is False
+
+
+def test_the_demo_seed_days_are_read_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SEED_DEMO_DAYS", "30")
+
+    assert Settings(_env_file=None).seed_demo_days == 30
+
+
+@pytest.mark.parametrize("days", ["-1", str(MAX_SEED_DAYS + 1)])
+def test_demo_seed_days_out_of_range_are_rejected(monkeypatch: pytest.MonkeyPatch, days: str) -> None:
+    monkeypatch.setenv("SEED_DEMO_DAYS", days)
+
+    with pytest.raises(ValidationError, match="seed_demo_days"):
+        Settings(_env_file=None)
+
+
+def test_the_most_demo_seed_days_are_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SEED_DEMO_DAYS", str(MAX_SEED_DAYS))
+
+    assert Settings(_env_file=None).seed_demo_days == MAX_SEED_DAYS
+
+
+@pytest.mark.parametrize("poller_enabled", ["true", "false"])
+def test_the_demo_seed_is_refused_with_real_plugs(monkeypatch: pytest.MonkeyPatch, poller_enabled: str) -> None:
+    monkeypatch.setenv("SEED_DEMO_DAYS", "30")
+    monkeypatch.setenv("TAPO_MOCK", "false")
+    monkeypatch.setenv("TAPO_USERNAME", "me@example.com")  # the credentials are fine: only the seed is wrong
+    monkeypatch.setenv("TAPO_PASSWORD", "secret")
+    monkeypatch.setenv("POLLER_ENABLED", poller_enabled)
+
+    with pytest.raises(ValidationError, match="SEED_DEMO_DAYS needs TAPO_MOCK=true"):
+        Settings(_env_file=None)
 
 
 def test_password_is_hidden_from_repr_and_str(monkeypatch: pytest.MonkeyPatch) -> None:
