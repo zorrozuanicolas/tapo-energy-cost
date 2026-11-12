@@ -99,7 +99,11 @@ describe("periodRange", () => {
       to: "2026-11-16",
       ref: "2026-11-12",
     });
-    expect(periodRange("semanal", -1, TODAY)).toMatchObject({ from: "2026-11-02", to: "2026-11-09", ref: "2026-11-05" });
+    expect(periodRange("semanal", -1, TODAY)).toMatchObject({
+      from: "2026-11-02",
+      to: "2026-11-09",
+      ref: "2026-11-05",
+    });
   });
 
   test("a week can span two months", () => {
@@ -114,7 +118,11 @@ describe("periodRange", () => {
       to: "2026-12-01",
       ref: "2026-11-01",
     });
-    expect(periodRange("mensual", -1, TODAY)).toMatchObject({ from: "2025-11-01", to: "2026-11-01", ref: "2026-10-01" });
+    expect(periodRange("mensual", -1, TODAY)).toMatchObject({
+      from: "2025-11-01",
+      to: "2026-11-01",
+      ref: "2026-10-01",
+    });
   });
 });
 

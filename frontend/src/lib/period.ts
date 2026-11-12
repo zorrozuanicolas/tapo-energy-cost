@@ -51,7 +51,9 @@ export function todayIn(timeZone: string, now: Date = new Date()): string {
 /** Current time (HH:MM) in the given time zone. */
 export function timeIn(timeZone: string, now: Date = new Date()): string {
   // `hourCycle: "h23"` makes midnight 00:00; `hour12: false` can print it as 24:00.
-  return new Intl.DateTimeFormat("es-UY", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
+  return new Intl.DateTimeFormat("es-UY", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(
+    now,
+  );
 }
 
 /** The data to request for a view. `offset` is 0 for the current period, -1 for the one before… */
@@ -70,8 +72,7 @@ export function periodRange(view: View, offset: number, today: string): PeriodRa
 }
 
 /** The last day of the period before this one. */
-export const previousPeriodEnd = (range: PeriodRange) =>
-  addDays(range.view === "semanal" ? range.from : range.ref, -1);
+export const previousPeriodEnd = (range: PeriodRange) => addDays(range.view === "semanal" ? range.from : range.ref, -1);
 
 /** The offset that contains a date picked in the date (or month) input. */
 export function offsetForDate(view: View, picked: string, today: string): number {

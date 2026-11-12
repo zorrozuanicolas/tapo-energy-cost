@@ -45,8 +45,7 @@ export const fetchOutlets = (signal?: AbortSignal) => get<Outlet[]>("/api/outlet
 
 export const fetchRange = (signal?: AbortSignal) => get<DataRange>("/api/range", undefined, signal);
 
-export const fetchTariff = (date: string, signal?: AbortSignal) =>
-  get<Tariff>("/api/tariff", { date }, signal);
+export const fetchTariff = (date: string, signal?: AbortSignal) => get<Tariff>("/api/tariff", { date }, signal);
 
 export const fetchConsumption = (granularity: Granularity, from: string, to: string, signal?: AbortSignal) =>
   get<ConsumptionResponse>("/api/consumption", { granularity, from, to }, signal);

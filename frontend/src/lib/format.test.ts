@@ -45,7 +45,13 @@ describe("sharePercents", () => {
   });
 
   test("always adds up to exactly 100", () => {
-    const cases = [[1, 2, 3, 4, 5, 7], [0.1, 0.2, 0.3], [13, 17, 19, 23], [1e-6, 1, 1e6], [2, 0, 5, 0, 1]];
+    const cases = [
+      [1, 2, 3, 4, 5, 7],
+      [0.1, 0.2, 0.3],
+      [13, 17, 19, 23],
+      [1e-6, 1, 1e6],
+      [2, 0, 5, 0, 1],
+    ];
     for (const values of cases) {
       expect(sum(sharePercents(values))).toBe(100);
     }

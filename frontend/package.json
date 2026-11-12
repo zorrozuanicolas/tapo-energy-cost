@@ -7,13 +7,17 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check ."
   },
   "dependencies": {
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.7",
     "@tailwindcss/vite": "^4.3.5",
     "@types/node": "^22.0.0",
     "@types/react": "^19.3.0",
