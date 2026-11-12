@@ -4,7 +4,7 @@ import asyncio
 import math
 import random
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, Protocol
 from zoneinfo import ZoneInfo
 
@@ -17,6 +17,10 @@ class OutletClient(Protocol):
 
     async def read_power_w(self) -> float:
         """Current power in watts. Raises if the plug cannot be read."""
+        ...
+
+    async def read_hourly_wh(self, first_day: date, last_day: date) -> list[tuple[datetime, float]]:
+        """The plug's own hourly history as (aware UTC hour start, Wh). Both days are inclusive."""
         ...
 
 
@@ -52,6 +56,9 @@ class MockOutletClient:
         noise = self._rng.random()
         return round(110.0 + 40.0 * noise if working else 3.0 + 2.0 * noise, 1)
 
+    async def read_hourly_wh(self, first_day: date, last_day: date) -> list[tuple[datetime, float]]:
+        return []  # a fake plug has no history of its own
+
 
 class TapoOutletClient:
     """Reads one real P110/P115 through the `tapo` library."""
@@ -86,6 +93,20 @@ class TapoOutletClient:
             except Exception:
                 self._handler = None  # log in again on the next read
                 raise
+
+    async def read_hourly_wh(self, first_day: date, last_day: date) -> list[tuple[datetime, float]]:
+        # Imported here for the same reason as `ApiClient`: mock mode never loads the library.
+        from tapo.requests import EnergyDataInterval
+
+        async with self._lock:
+            try:
+                handler = await self._connect()
+                # The library reads both days in the plug's own time zone, whatever the host's is.
+                result = await handler.get_energy_data(EnergyDataInterval.Hourly, first_day, last_day)
+            except Exception:
+                self._handler = None  # log in again on the next read
+                raise
+        return [(entry.start_date_time.astimezone(UTC), float(entry.energy or 0)) for entry in result.entries]
 
 
 def make_client(outlet: OutletInfo, index: int, settings: Settings, tz: ZoneInfo) -> OutletClient:
