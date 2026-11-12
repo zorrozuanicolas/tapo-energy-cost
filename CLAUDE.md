@@ -37,4 +37,12 @@ Backend (run from `backend/`; uv is the package manager):
 - `uv run ruff format`: format (`--check` to only verify)
 - `uv run mypy`: type check (strict)
 
-Frontend and Docker commands are added as those parts are built.
+Frontend (run from `frontend/`; npm is the package manager, Node 22):
+
+- `npm ci`: install dependencies from `package-lock.json`
+- `npm run dev`: dev server on port 5173, which forwards `/api` to the backend on port 8000
+- `npm test`: run the tests
+- `npm run check`: lint, format and import order (Biome); `npm run format` fixes them
+- `npm run build`: type check (strict) and production build
+
+Docker commands are added as that part is built.
