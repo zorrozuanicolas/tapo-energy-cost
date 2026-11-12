@@ -5,6 +5,7 @@ this module reads no settings and touches no files.
 """
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -30,8 +31,11 @@ from .outlets import OutletInfo, load_outlets, sync_outlets
 from .poller import Poller
 from .prune import prune_loop
 from .schemas import ConsumptionResponse, HealthOut, OutletOut, RangeOut, TariffOut
+from .seed import seed_demo
 from .settings import Settings
 from .supervisor import supervise
+
+log = logging.getLogger("tapo.main")
 
 # Idle time after which the live stream sends a comment, to keep proxies from closing the connection
 # (nginx closes an idle one after 60 s by default).
@@ -95,6 +99,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             session_factory = make_session_factory(engine)
             outlets = await sync_outlets(session_factory, configs)
             tz = ZoneInfo(settings.timezone)
+            if settings.seed_demo_days > 0:
+                # Before any task starts, so none of them sees a half-filled table.
+                seeded = await seed_demo(
+                    session_factory, outlets, settings.seed_demo_days, tz, billing, datetime.now(UTC)
+                )
+                if seeded:
+                    log.info("Seeded %d hour(s) of demo history", seeded)
             hub = LiveHub()
             app.state.ctx = AppState(
                 settings=settings,
