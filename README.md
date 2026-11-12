@@ -31,6 +31,10 @@ everything without hardware. Once it is running:
 - `GET /api/tariff`: the tariff in force today.
 - `/docs`: the interactive API reference.
 
+The history views are empty on a fresh database. To try them, start the app with `SEED_DEMO_DAYS=30` for 30 days of
+fake hourly data. It only fills a database with no energy data yet, and it needs the fake plugs
+([why](docs/decisions/0011-demo-seed.md)).
+
 ### Using the real plugs
 
 Copy `backend/.env.example` to `backend/.env` (it is ignored by git) and set:
