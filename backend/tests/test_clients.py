@@ -1,6 +1,6 @@
 import asyncio
 import random
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -67,6 +67,12 @@ def test_mock_desk_is_idle_outside_office_hours(when: datetime) -> None:
     assert 3.0 <= watts <= 5.0
 
 
+def test_mock_has_no_history() -> None:
+    hours = asyncio.run(mock(0, at(2026, 11, 4)).read_hourly_wh(date(2026, 11, 4), date(2026, 11, 5)))
+
+    assert hours == []
+
+
 # --- Tapo ------------------------------------------------------------------------------------------
 
 
@@ -78,6 +84,8 @@ class FakeHandler:
         self.watts = watts
         self.delay = delay
         self.fail = False
+        self.history: list[Any] = []
+        self.history_requests: list[tuple[Any, date, date]] = []
         self.running = 0
         self.max_running = 0
 
@@ -94,6 +102,18 @@ class FakeHandler:
 
     async def get_current_power(self) -> Any:
         return SimpleNamespace(current_power=self.watts)
+
+    async def get_energy_data(self, interval: Any, start_date: date, end_date: date) -> Any:
+        self.history_requests.append((interval, start_date, end_date))
+        self.running += 1
+        self.max_running = max(self.max_running, self.running)
+        try:
+            await asyncio.sleep(self.delay)
+            if self.fail:
+                raise ConnectionError("plug unreachable")
+            return SimpleNamespace(entries=self.history)
+        finally:
+            self.running -= 1
 
 
 class FakeApi:
@@ -172,6 +192,65 @@ def test_tapo_never_reads_the_same_plug_twice_at_once() -> None:
 
     async def work() -> None:
         await asyncio.gather(*(client.read_power_w() for _ in range(5)))
+
+    asyncio.run(work())
+
+    assert handler.max_running == 1
+
+
+def entry(start: datetime, energy: int | None) -> Any:
+    return SimpleNamespace(start_date_time=start, energy=energy)
+
+
+def test_tapo_returns_the_history_as_aware_utc_hours_in_wh() -> None:
+    handler = FakeHandler()
+    handler.history = [
+        entry(at(2026, 11, 4, 0), 120),  # midnight in Montevideo (UTC-3)
+        entry(at(2026, 11, 4, 1), None),  # the plug has no figure for this hour
+    ]
+
+    hours = asyncio.run(tapo(FakeApi(handler)).read_hourly_wh(date(2026, 11, 4), date(2026, 11, 5)))
+
+    assert hours == [
+        (datetime(2026, 11, 4, 3, tzinfo=UTC), 120.0),
+        (datetime(2026, 11, 4, 4, tzinfo=UTC), 0.0),
+    ]
+    assert all(start.utcoffset() == timedelta(0) for start, _ in hours)
+
+
+def test_tapo_asks_for_hourly_data_between_the_two_days() -> None:
+    from tapo.requests import EnergyDataInterval
+
+    handler = FakeHandler()
+
+    asyncio.run(tapo(FakeApi(handler)).read_hourly_wh(date(2026, 11, 4), date(2026, 11, 11)))
+
+    assert handler.history_requests == [(EnergyDataInterval.Hourly, date(2026, 11, 4), date(2026, 11, 11))]
+
+
+def test_tapo_logs_in_again_after_a_history_error() -> None:
+    handler = FakeHandler()
+    api = FakeApi(handler)
+    client = tapo(api)
+
+    async def work() -> None:
+        handler.fail = True
+        with pytest.raises(ConnectionError):
+            await client.read_hourly_wh(date(2026, 11, 4), date(2026, 11, 5))
+        handler.fail = False
+        await client.read_hourly_wh(date(2026, 11, 4), date(2026, 11, 5))
+
+    asyncio.run(work())
+
+    assert len(api.logins) == 2
+
+
+def test_tapo_does_not_read_history_and_power_at_the_same_time() -> None:
+    handler = FakeHandler(delay=0.01)
+    client = tapo(FakeApi(handler))
+
+    async def work() -> None:
+        await asyncio.gather(client.read_power_w(), client.read_hourly_wh(date(2026, 11, 4), date(2026, 11, 5)))
 
     asyncio.run(work())
 

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -38,11 +38,17 @@ class FakeClient:
             raise item
         return item
 
+    async def read_hourly_wh(self, first_day: date, last_day: date) -> list[tuple[datetime, float]]:
+        return []  # the poller never asks for history
+
 
 class HangingClient:
     async def read_power_w(self) -> float:
         await asyncio.sleep(3600)
         return 0.0
+
+    async def read_hourly_wh(self, first_day: date, last_day: date) -> list[tuple[datetime, float]]:
+        return []
 
 
 def run_with_factory[T](tmp_path: Path, work: Callable[[SessionFactory], Awaitable[T]]) -> T:
