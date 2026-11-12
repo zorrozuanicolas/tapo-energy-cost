@@ -6,6 +6,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# About three years: with a few plugs that is tens of thousands of rows, built in memory.
+MAX_SEED_DAYS = 1100
+
 
 class Settings(BaseSettings):
     """Runtime settings, read from environment variables (or a .env file)."""
@@ -39,6 +42,10 @@ class Settings(BaseSettings):
     # Turn the poller off to run only the API (for example on a copy of the database).
     poller_enabled: bool = True
 
+    # Days of fake hourly history to create at startup, when there is no energy data yet. 0 turns it
+    # off. For demos only, so it needs fake plugs. The cap keeps a typo from building a huge history.
+    seed_demo_days: int = Field(default=0, ge=0, le=MAX_SEED_DAYS)
+
     # Tapo account used to log in to the plugs. The password is a SecretStr: it is hidden
     # in repr(), logs and tracebacks, and read only on purpose with `.get_secret_value()`.
     tapo_username: str = ""
@@ -65,6 +72,9 @@ class Settings(BaseSettings):
                 f"max_gap_seconds ({self.max_gap_seconds}) must be at least twice "
                 f"poll_interval_seconds ({self.poll_interval_seconds})"
             )
+        # Fake history in a database that real plugs write to could never be told apart again.
+        if self.seed_demo_days > 0 and not self.tapo_mock:
+            raise ValueError("SEED_DEMO_DAYS needs TAPO_MOCK=true: demo data must never mix with real readings")
         # Fail at startup, not on the first poll, when real plugs are used without credentials.
         has_credentials = bool(self.tapo_username and self.tapo_password.get_secret_value())
         if self.poller_enabled and not self.tapo_mock and not has_credentials:
