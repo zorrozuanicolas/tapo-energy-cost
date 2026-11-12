@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .aggregation import Granularity, RangeError, consumption
+from .backfill import backfill_loop
 from .billing import BANDS, BillingConfig, load_billing_config
 from .clients import make_client
 from .db import HourlyEnergy, make_engine, make_session_factory
@@ -27,6 +28,7 @@ from .logs import configure_logging
 from .migrate import upgrade_database_async
 from .outlets import OutletInfo, load_outlets, sync_outlets
 from .poller import Poller
+from .prune import prune_loop
 from .schemas import ConsumptionResponse, HealthOut, OutletOut, RangeOut, TariffOut
 from .settings import Settings
 from .supervisor import supervise
@@ -102,18 +104,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 session_factory=session_factory,
                 hub=hub,
             )
-            poller_task: asyncio.Task[None] | None = None
+            # The prune only touches the database, so it runs even when the poller is off.
+            tasks = [asyncio.create_task(supervise("prune", lambda: prune_loop(settings, session_factory)))]
             if settings.poller_enabled:
+                # The poller and the backfill share the clients, so they take turns on each plug.
                 clients = {o.id: make_client(o, i, settings, tz) for i, o in enumerate(outlets)}
                 poller = Poller(settings, session_factory, hub, clients, outlets)
-                poller_task = asyncio.create_task(supervise("poller", poller.run))
+                tasks.append(asyncio.create_task(supervise("poller", poller.run)))
+                tasks.append(
+                    asyncio.create_task(
+                        supervise("backfill", lambda: backfill_loop(session_factory, clients, outlets, tz))
+                    )
+                )
             try:
                 yield
             finally:
-                # Stop the poller before closing the database it writes to.
-                if poller_task is not None:
-                    poller_task.cancel()
-                    await asyncio.gather(poller_task, return_exceptions=True)
+                # Stop the background tasks before closing the database they write to.
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
         finally:
             await engine.dispose()
 
