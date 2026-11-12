@@ -18,7 +18,14 @@ afterEach(() => {
 
 describe("requests", () => {
   test("fetchConsumption sends the query and returns the parsed body", async () => {
-    const body = { granularity: "day", timezone: "America/Montevideo", outlets: [], buckets: [], totals: {}, warnings: [] };
+    const body = {
+      granularity: "day",
+      timezone: "America/Montevideo",
+      outlets: [],
+      buckets: [],
+      totals: {},
+      warnings: [],
+    };
     const fake = stubFetch(json(body));
 
     const result = await fetchConsumption("day", "2026-11-02", "2026-11-09");
