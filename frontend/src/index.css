@@ -1,7 +1,74 @@
 @import "tailwindcss";
+@import "@fontsource-variable/manrope";
+
+/*
+ * Design tokens. Each --color-* becomes Tailwind utilities (bg-ink, text-muted, border-line...).
+ * `static` keeps every variable in the CSS even when no class uses it: the outlet and band colours
+ * are read from inline styles (see src/lib/colors.ts), which Tailwind cannot see.
+ */
+@theme static {
+  --font-sans: "Manrope Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Surfaces and text */
+  --color-canvas: #f4f5f2;
+  --color-surface: #ffffff;
+  --color-ink: #16211d;
+  --color-muted: #5b6862;
+  --color-line: #e2e5df;
+  --color-control: #8a988f;
+  --color-soft: #eef2ef;
+  --color-track: #e6eae5;
+  --color-seg: #e7eae4;
+  --color-seg-text: #3e4b45;
+
+  /* Tariff bands, lightest to darkest */
+  --color-band-valle: #d6e0da;
+  --color-band-llano: #9cb3a7;
+  --color-band-punta: #3e5c4e;
+
+  /* One colour per plug */
+  --color-outlet-1: #2457c5;
+  --color-outlet-2: #d9731a;
+  --color-outlet-3: #0f6b5b;
+  --color-outlet-4: #8b3fa8;
+  --color-outlet-5: #a8321f;
+
+  /* Status */
+  --color-online: #1f9d55;
+  --color-warning-bg: #fff6dd;
+  --color-warning-border: #e2c275;
+  --color-warning-text: #4a3a0a;
+}
 
 @layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
   body {
-    @apply bg-slate-50 font-sans text-slate-900 antialiased;
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  input {
+    font-family: inherit;
+  }
+
+  button:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
   }
 }
