@@ -9,8 +9,10 @@ export default defineConfig({
     proxy: { "/api": "http://localhost:8000" },
   },
   test: {
-    // The logic tested so far (API client, dates, formatting) does not touch the DOM.
+    // Pure logic (API client, dates, formatting) runs in Node. Component tests (.test.tsx) opt in to the
+    // browser-like environment with a `// @vitest-environment jsdom` comment on their first line.
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["./src/test-setup.ts"],
   },
 });
