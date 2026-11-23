@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { ConsumptionChart } from "./components/ConsumptionChart";
 import { DashboardSkeleton } from "./components/DashboardSkeleton";
 import { ErrorState } from "./components/ErrorState";
 import { OutletList } from "./components/OutletList";
@@ -8,15 +9,19 @@ import { PERIOD_PANEL_ID, PeriodTabs, tabId } from "./components/PeriodTabs";
 import { SummaryCards } from "./components/SummaryCards";
 import { WarningBanner } from "./components/WarningBanner";
 import { useConsumption, useDataRange, useTariff } from "./hooks/queries";
+import { useLive } from "./hooks/useLive";
+import type { ChartMode } from "./lib/chart";
 import { TIMEZONE } from "./lib/config";
 import { footnote } from "./lib/footnote";
 import { periodRange, periodTitle, timeIn, todayIn, type View } from "./lib/period";
 import { periodValues } from "./lib/values";
 
 export default function App() {
-  // The only state: which tab and how many periods back. Everything else is derived on each render.
+  // The state: which tab, how many periods back and what the chart shows. It all lives here so that it survives
+  // a change of tab or period. Everything else is derived on each render.
   const [view, setView] = useState<View>("hoy");
   const [offset, setOffset] = useState(0);
+  const [chosenMode, setChosenMode] = useState<ChartMode>("all");
 
   const today = todayIn(TIMEZONE);
   const range = periodRange(view, offset, today);
@@ -25,8 +30,12 @@ export default function App() {
   const consumption = useConsumption(range, offset === 0);
   const tariff = useTariff(range.ref);
   const dataRange = useDataRange();
+  // Whether a plug is online does not depend on the period, so the live power is shown on every tab.
+  const live = useLive();
   const { data } = consumption;
   const values = data ? periodValues(view, data) : {};
+  // A plug that is no longer in the data cannot be shown, so the chart falls back to all of them.
+  const chartMode = data?.outlets.some((outlet) => outlet.id === chosenMode) ? chosenMode : "all";
 
   const changeView = (next: View) => {
     setView(next);
@@ -61,8 +70,15 @@ export default function App() {
 
           {data && (
             <>
-              <SummaryCards outlets={data.outlets} values={values} />
-              {/* The consumption chart goes here (next PR). */}
+              <SummaryCards outlets={data.outlets} values={values} live={live} />
+              <ConsumptionChart
+                buckets={data.buckets}
+                outlets={data.outlets}
+                granularity={range.granularity}
+                mode={chartMode}
+                onModeChange={setChosenMode}
+                tariff={tariff.data}
+              />
               <OutletList outlets={data.outlets} values={values} />
             </>
           )}
