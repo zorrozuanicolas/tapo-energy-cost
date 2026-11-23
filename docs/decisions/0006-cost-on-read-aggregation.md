@@ -29,8 +29,9 @@ We will compute cost when it is read (`consumption` in `app/aggregation.py`).
 - **Missing data is reported, not hidden.**
   - Hours before the first tariff keep their kWh but have no cost, and the response carries a `no_tariff`
     warning with the first affected day.
-  - A year with no holiday list carries a `missing_holidays` warning, because its holidays would be priced
-    as business days.
+  - A year with no holiday list carries a `missing_holidays` warning when the range has hours priced in that
+    year, because their holidays would be priced as business days. A year that only appears as an empty bucket
+    (for example the start of a 12-month window) has nothing to price wrongly, so it does not warn.
 - **The response is typed and strict.** `consumption` returns a Pydantic model (`ConsumptionResponse`).
   Models are frozen and reject unknown fields. The two warning kinds are a discriminated union on `code`,
   so a warning can never mix the fields of the other kind.
@@ -54,8 +55,9 @@ We will compute cost when it is read (`consumption` in `app/aggregation.py`).
 - Reading a month loads at most about 31 x 24 rows per outlet, which is fine for a home installation.
   A much larger scale would need caching or a summary table.
 - Fixing a tariff or a holiday fixes the whole history at once.
-- The 2027 holidays are not in `config/holidays.yaml` yet, so requests that touch 2027 return a
-  `missing_holidays` warning until they are added.
+- The 2027 holidays are not in `config/holidays.yaml` yet, so requests with priced hours in 2027 return a
+  `missing_holidays` warning until they are added. Because the warning follows the data, it appears once the
+  first hour of 2027 is stored, not before.
 - The JSON keys of `outlets` and `totals` are outlet ids, which JSON turns into strings (`"1"`). The
   frontend must know this.
 - The `no_tariff` field is called `since`, not `from`, because `from` is a Python keyword.
