@@ -1,17 +1,15 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
-import type { ApiWarning, Bucket, ConsumptionResponse, OutletValue } from "./types";
+import type { ApiWarning, Bucket, ConsumptionResponse, LiveReading, Outlet, OutletValue } from "./types";
 
 // A small fake backend: two plugs, and a different set of totals for each view so a test can tell them apart.
-const OUTLETS = [
-  { id: 1, slug: "heladera", name: "Heladera" },
-  { id: 2, slug: "escritorio", name: "Escritorio" },
-];
+const FRIDGE: Outlet = { id: 1, slug: "heladera", name: "Heladera" };
+const DESK: Outlet = { id: 2, slug: "escritorio", name: "Escritorio" };
 
 type Values = Record<string, OutletValue>;
 
@@ -30,13 +28,25 @@ const bucket = (outlets: Values): Bucket => ({
   outlets,
 });
 
+// Two hours of today: the first with data, the second without.
+const hourBuckets: Bucket[] = [
+  {
+    ...bucket(DAY),
+    start: "2026-10-22T14:00:00-03:00",
+    end: "2026-10-22T15:00:00-03:00",
+    band: "llano",
+    rate_per_kwh: 6.31,
+  },
+  { ...bucket({}), start: "2026-10-22T15:00:00-03:00", end: "2026-10-22T16:00:00-03:00", has_data: false },
+];
+
 function consumption(granularity: string): ConsumptionResponse {
-  const base = { timezone: "America/Montevideo", outlets: OUTLETS, warnings: warnings };
+  const base = { timezone: "America/Montevideo", outlets, warnings };
   if (granularity === "day") return { ...base, granularity: "day", buckets: [], totals: WEEK };
   if (granularity === "month") {
     return { ...base, granularity: "month", buckets: [bucket({}), bucket(LAST_MONTH)], totals: YEAR };
   }
-  return { ...base, granularity: "hour", buckets: [], totals: DAY };
+  return { ...base, granularity: "hour", buckets: hourBuckets, totals: DAY };
 }
 
 const TARIFF = {
@@ -49,14 +59,48 @@ const TARIFF = {
 };
 
 // What the fake backend answers; each test may change it, and afterEach puts it back.
+let outlets: Outlet[];
 let earliest: string | null;
 let warnings: ApiWarning[];
 let consumptionFails: boolean;
 
+/** Stands in for the browser's EventSource: the tests play the part of the server. */
+class FakeEventSource {
+  static current: FakeEventSource | undefined;
+
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  readonly close = vi.fn();
+
+  constructor(readonly url: string) {
+    FakeEventSource.current = this;
+  }
+}
+
+const stream = () => {
+  if (!FakeEventSource.current) throw new Error("The page did not open the live stream");
+  return FakeEventSource.current;
+};
+const streamOpens = () => act(() => stream().onopen?.());
+const streamDrops = () => act(() => stream().onerror?.());
+const streamSends = (reading: LiveReading) =>
+  act(() => stream().onmessage?.(new MessageEvent("message", { data: JSON.stringify(reading) })));
+
+const reading = (outletId: number, power: number | null, online = true): LiveReading => ({
+  outlet_id: outletId,
+  power_w: power,
+  online,
+  ts: "2026-10-22T18:53:00Z",
+});
+
 beforeEach(() => {
+  outlets = [FRIDGE, DESK];
   earliest = "2026-10-01";
   warnings = [];
   consumptionFails = false;
+  FakeEventSource.current = undefined;
+  vi.stubGlobal("EventSource", FakeEventSource);
   // Only `Date` is faked, so timers keep working. 18:53 UTC is 15:53 in Montevideo.
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-22T18:53:00Z"));
@@ -178,5 +222,99 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Reintentar" }));
     await detailTable();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  describe("chart", () => {
+    const picker = () => screen.getByRole("group", { name: "Qué mostrar en el gráfico" });
+    const chosen = () => within(picker()).getByRole("button", { pressed: true });
+
+    it("shows the hours of today, with a choice of what to show", async () => {
+      renderApp();
+      await detailTable();
+      expect(screen.getByRole("heading", { level: 2, name: "Consumo por hora" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^14:00 – 15:00: Heladera 0,150 kWh/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "15:00 – 16:00: sin datos" })).toBeInTheDocument();
+      expect(
+        within(picker())
+          .getAllByRole("button")
+          .map((button) => button.textContent),
+      ).toEqual(["Superpuesto", "Heladera", "Escritorio"]);
+      expect(chosen()).toHaveTextContent("Superpuesto");
+    });
+
+    it("keeps the chosen plug when the tab changes", async () => {
+      const user = renderApp();
+      await detailTable();
+      await user.click(within(picker()).getByRole("button", { name: "Escritorio" }));
+      expect(chosen()).toHaveTextContent("Escritorio");
+
+      await user.click(screen.getByRole("tab", { name: "Semanal" }));
+      expect(await screen.findByRole("heading", { level: 2, name: "Consumo por día" })).toBeInTheDocument();
+      expect(chosen()).toHaveTextContent("Escritorio");
+    });
+
+    it("goes back to showing every plug when the chosen one is gone", async () => {
+      const user = renderApp();
+      await detailTable();
+      await user.click(within(picker()).getByRole("button", { name: "Escritorio" }));
+
+      outlets = [FRIDGE]; // the desk plug was removed from the configuration
+      await user.click(screen.getByRole("tab", { name: "Semanal" }));
+      await screen.findByRole("heading", { level: 2, name: "Consumo por día" });
+      expect(chosen()).toHaveTextContent("Superpuesto");
+    });
+  });
+
+  describe("live power", () => {
+    const power = (text: string) => within(summary()).getByText(text);
+
+    it("shows what each plug draws once the stream sends it", async () => {
+      renderApp();
+      await detailTable();
+      expect(within(summary()).queryByText(/Ahora/)).not.toBeInTheDocument();
+
+      streamOpens();
+      streamSends(reading(1, 83.4));
+      streamSends(reading(2, null, false));
+      expect(power("Ahora: 83 W")).toBeInTheDocument();
+      expect(power("Sin conexión")).toBeInTheDocument();
+    });
+
+    it("is shown in every tab and in past days, since the plugs are online whichever the period", async () => {
+      const user = renderApp();
+      await detailTable();
+      streamOpens();
+      streamSends(reading(1, 83.4));
+      const back = screen.getByRole("button", { name: "Período anterior" });
+      await waitFor(() => expect(back).toBeEnabled());
+
+      await user.click(back);
+      await heading("Miércoles 21 de octubre");
+      expect(power("Ahora: 83 W")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("tab", { name: "Semanal" }));
+      await heading("Semana del 19 al 25 de octubre");
+      await detailTable();
+      expect(power("Ahora: 83 W")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("tab", { name: "Mensual" }));
+      await heading("Octubre de 2026");
+      await detailTable();
+      expect(power("Ahora: 83 W")).toBeInTheDocument();
+    });
+
+    it("disappears while the stream is down, because the readings would be old", async () => {
+      renderApp();
+      await detailTable();
+      streamOpens();
+      streamSends(reading(1, 83.4));
+      expect(power("Ahora: 83 W")).toBeInTheDocument();
+
+      streamDrops();
+      expect(within(summary()).queryByText(/Ahora/)).not.toBeInTheDocument();
+
+      streamOpens(); // the browser reconnected by itself
+      expect(power("Ahora: 83 W")).toBeInTheDocument();
+    });
   });
 });
