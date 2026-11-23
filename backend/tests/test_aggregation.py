@@ -229,10 +229,26 @@ def test_outlets_are_separate_and_unrequested_ones_are_ignored(tmp_path: Path) -
     assert set(only_a.totals) == {1}
 
 
-def test_missing_holiday_years_produce_a_warning_each(tmp_path: Path) -> None:
+def test_each_year_with_priced_hours_and_no_holidays_produces_a_warning(tmp_path: Path) -> None:
+    config = BillingConfig(tariffs=[TARIFF], holidays={2025: {}})
+    rows = [(1, at(31, 10, month=12, year=2026), 1.0), (1, at(1, 10, year=2027), 1.0)]
+    result = run_consumption(tmp_path, rows, "day", date(2026, 12, 31), date(2027, 1, 2), config=config)
+    assert result.warnings == [MissingHolidaysWarning(year=2026), MissingHolidaysWarning(year=2027)]
+
+
+def test_a_year_without_data_in_the_range_produces_no_warning(tmp_path: Path) -> None:
+    # The range reaches into 2027 (no holiday list), but all the data is in 2026.
     config = BillingConfig(tariffs=[TARIFF], holidays={2026: {}})
-    result = run_consumption(tmp_path, [], "day", date(2026, 12, 31), date(2027, 1, 2), config=config)
-    assert result.warnings == [MissingHolidaysWarning(year=2027)]
+    rows = [(1, at(30, 10, month=12), 1.0)]
+    result = run_consumption(tmp_path, rows, "day", date(2026, 12, 30), date(2027, 1, 3), config=config)
+    assert result.warnings == []
+
+
+def test_hours_that_cannot_be_priced_do_not_ask_for_holidays(tmp_path: Path) -> None:
+    config = BillingConfig(tariffs=[TARIFF], holidays={})  # no holidays at all, and no tariff before 2026
+    rows = [(1, at(31, 10, month=12, year=2025), 1.0)]
+    result = run_consumption(tmp_path, rows, "day", date(2025, 12, 31), date(2026, 1, 1), config=config)
+    assert result.warnings == [NoTariffWarning(since=date(2025, 12, 31))]
 
 
 def test_hours_before_the_first_tariff_count_kwh_but_have_no_cost(tmp_path: Path) -> None:
