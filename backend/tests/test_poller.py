@@ -227,8 +227,17 @@ def test_run_polls_repeatedly_until_cancelled(tmp_path: Path) -> None:
     async def work(factory: SessionFactory) -> int:
         client = FakeClient(10.0)
         s = Setup(factory, {1: client})
-        with pytest.raises(TimeoutError):
-            await asyncio.wait_for(s.poller.run(interval=0.01), timeout=0.2)
+        task = asyncio.create_task(s.poller.run(interval=0.01))
+        try:
+            # Wait for the third poll, not for a fixed time: a slow machine then takes longer and still passes.
+            # The limit only keeps a broken poller from hanging the test.
+            async with asyncio.timeout(5):
+                while client.calls < 3:
+                    await asyncio.sleep(0.01)
+        finally:
+            task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task  # `run` only ends when it is cancelled
         return client.calls
 
     assert run_with_factory(tmp_path, work) >= 3
