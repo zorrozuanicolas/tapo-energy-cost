@@ -113,6 +113,66 @@ describe("PeriodNavigator picker", () => {
     expect(showPicker).toHaveBeenCalledOnce();
   });
 
+  describe("clicking the control while the calendar is open", () => {
+    // The browser closes an open calendar on the press of the click, so the click that follows must not open it again.
+    const setupWithPicker = () => {
+      const showPicker = vi.fn();
+      HTMLInputElement.prototype.showPicker = showPicker; // jsdom does not have it
+      return { showPicker, ...setup({ view: "hoy" }) };
+    };
+
+    it("leaves it closed, and the click after that opens it again", async () => {
+      const { showPicker, user } = setupWithPicker();
+      const input = screen.getByLabelText("Ir al día");
+      await user.click(input);
+      await user.click(input);
+      expect(showPicker).toHaveBeenCalledOnce();
+      await user.click(input);
+      expect(showPicker).toHaveBeenCalledTimes(2);
+    });
+
+    it("cancels the browser's own opening, which the calendar icon has and would open it a second time", () => {
+      setupWithPicker();
+      const notCancelled = fireEvent.click(screen.getByLabelText("Ir al día"));
+      expect(notCancelled).toBe(false); // fireEvent returns false when preventDefault was called
+    });
+
+    it("leaves it closed when the click is on the label text", async () => {
+      // Pressing the label takes the focus away from the input, which must not count as leaving the control.
+      const { showPicker, user } = setupWithPicker();
+      await user.click(screen.getByLabelText("Ir al día"));
+      await user.click(screen.getByText("Ir al día"));
+      expect(showPicker).toHaveBeenCalledOnce();
+    });
+
+    it("opens it again once a date has been chosen", async () => {
+      const { showPicker, user } = setupWithPicker();
+      const input = screen.getByLabelText("Ir al día");
+      await user.click(input);
+      fireEvent.change(input, { target: { value: "2026-10-10" } });
+      await user.click(input);
+      expect(showPicker).toHaveBeenCalledTimes(2);
+    });
+
+    it("opens it again after a key press", async () => {
+      const { showPicker, user } = setupWithPicker();
+      const input = screen.getByLabelText("Ir al día");
+      await user.click(input);
+      await user.keyboard("{Escape}");
+      await user.click(input);
+      expect(showPicker).toHaveBeenCalledTimes(2);
+    });
+
+    it("opens it again after the focus went elsewhere", async () => {
+      const { showPicker, user } = setupWithPicker();
+      const input = screen.getByLabelText("Ir al día");
+      await user.click(input);
+      await user.click(document.body);
+      await user.click(input);
+      expect(showPicker).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("marks the input as clicked until the keyboard is used", async () => {
     const { user } = setup({ view: "hoy" });
     const input = screen.getByLabelText("Ir al día");

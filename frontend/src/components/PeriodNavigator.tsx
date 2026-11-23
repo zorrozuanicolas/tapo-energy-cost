@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { type MouseEvent, useRef, useState } from "react";
 
 import { cx } from "../lib/cx";
 import { offsetForDate, type PeriodRange, pickerBound, pickerValue, previousPeriodEnd, type View } from "../lib/period";
@@ -57,12 +57,31 @@ export function PeriodNavigator({ view, offset, range, today, earliest, onOffset
   // stay hidden until the keyboard is used again or the field loses focus.
   const [clicked, setClicked] = useState(false);
 
-  const openPicker = () => {
+  // Whether the calendar is open, as far as we know. The browser closes it on the pointer press of a click on the
+  // control, before the click arrives here: without this flag the click would open it again at once. A ref, not
+  // state: nothing is drawn from it.
+  const pickerOpen = useRef(false);
+  // A press on the label text takes the focus away from the input before the click arrives. That blur does not mean
+  // the user left the control, so it must not reset `pickerOpen`.
+  const pressedOnControl = useRef(false);
+
+  // Clicking the control opens the calendar, and clicking it again closes it.
+  const togglePicker = (event: MouseEvent<HTMLInputElement>) => {
+    // The calendar icon inside the field opens the calendar by itself at the end of a click, even right after the
+    // browser closed it on the press. Cancelling that leaves this function as the only thing that opens it.
+    event.preventDefault();
+    pressedOnControl.current = false;
     setClicked(true);
+    if (pickerOpen.current) {
+      pickerOpen.current = false; // the browser has just closed it
+      return;
+    }
+    pickerOpen.current = true;
     pickerRef.current?.showPicker?.(); // missing in old browsers and in jsdom
   };
 
   const pick = (value: string) => {
+    pickerOpen.current = false; // choosing a date closes the calendar
     if (!value) return; // the input was cleared
     const target = offsetForDate(view, value, today);
     if (Number.isNaN(target)) return;
@@ -77,7 +96,10 @@ export function PeriodNavigator({ view, offset, range, today, earliest, onOffset
       {/* A click anywhere on the control opens the picker: the browser forwards a click on the label to the input.
           One focus ring goes around the whole control: the input's own ring would be a box inside the border. */}
       <label
-        onPointerDown={() => setClicked(true)} // before the browser focuses the field, so nothing flashes while pressing
+        onPointerDown={() => {
+          pressedOnControl.current = true;
+          setClicked(true); // before the browser focuses the field, so nothing flashes while pressing
+        }}
         className={cx(
           "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-control bg-surface px-3 text-sm font-bold",
           !clicked && "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink",
@@ -88,9 +110,16 @@ export function PeriodNavigator({ view, offset, range, today, earliest, onOffset
           ref={pickerRef}
           type={view === "mensual" ? "month" : "date"}
           data-clicked={clicked || undefined} // index.css hides the highlighted segment while this is set
-          onClick={openPicker}
-          onKeyDown={() => setClicked(false)}
-          onBlur={() => setClicked(false)}
+          onClick={togglePicker}
+          onKeyDown={() => {
+            setClicked(false);
+            pickerOpen.current = false; // Escape or Enter close the calendar
+          }}
+          onBlur={() => {
+            setClicked(false);
+            if (pressedOnControl.current) return; // the click that follows is on the control itself
+            pickerOpen.current = false; // a click elsewhere closes it
+          }}
           value={pickerValue(range)}
           min={earliest ? pickerBound(view, earliest) : undefined}
           max={pickerBound(view, today)}
