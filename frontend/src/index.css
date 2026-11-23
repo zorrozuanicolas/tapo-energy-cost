@@ -71,4 +71,19 @@
     outline: 2px solid var(--color-ink);
     outline-offset: 2px;
   }
+
+  /*
+   * A date or month field highlights the segment being edited. That helps with the keyboard, but after a click
+   * (which opens the picker) it only gets in the way, so PeriodNavigator sets data-clicked then.
+   */
+  input[data-clicked]::-webkit-datetime-edit-day-field,
+  input[data-clicked]::-webkit-datetime-edit-month-field,
+  input[data-clicked]::-webkit-datetime-edit-year-field {
+    background-color: transparent; /* no ":focus" here: Chrome does not let an author rule win on the focused segment */
+    color: inherit;
+  }
+
+  input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+  }
 }
