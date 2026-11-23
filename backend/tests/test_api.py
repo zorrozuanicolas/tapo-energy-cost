@@ -251,8 +251,14 @@ def test_consumption_marks_the_bucket_that_contains_now(tmp_path: Path) -> None:
 
 
 def test_consumption_reports_missing_holidays_as_a_warning(tmp_path: Path) -> None:
-    body = get_consumption(tmp_path, {"granularity": "day", "from": "2027-01-04", "to": "2027-01-05"}).json()
+    params = {"granularity": "day", "from": "2027-01-04", "to": "2027-01-05"}
+    body = get_consumption(tmp_path, params, hours=[datetime(2027, 1, 4, 15, tzinfo=UTC)]).json()
     assert body["warnings"] == [{"code": "missing_holidays", "year": 2027}]
+
+
+def test_consumption_does_not_warn_about_a_year_without_data(tmp_path: Path) -> None:
+    params = {"granularity": "day", "from": "2027-01-04", "to": "2027-01-05"}
+    assert get_consumption(tmp_path, params).json()["warnings"] == []
 
 
 def test_consumption_with_an_invalid_range_is_a_400(tmp_path: Path) -> None:

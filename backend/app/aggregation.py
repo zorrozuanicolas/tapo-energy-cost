@@ -188,6 +188,7 @@ async def consumption(
     )
 
     first_untariffed: date | None = None
+    priced_years: set[int] = set()  # the years that have hours priced with a band, so holidays matter in them
     for outlet_id, hour_start, kwh in rows:
         local = hour_start.astimezone(tz)
         bucket_sums = sums[_bucket_key(granularity, hour_start, tz)]
@@ -199,13 +200,13 @@ async def consumption(
             if first_untariffed is None or local.date() < first_untariffed:
                 first_untariffed = local.date()
             continue
+        priced_years.add(local.year)
         price = tariff.rate_with_vat(config.band_for(local, tariff))
         bucket_sums.cost[outlet_id] = bucket_sums.cost.get(outlet_id, 0.0) + kwh * price
 
+    # Only a year with priced hours can be priced wrongly: an empty bucket in a year with no holidays is harmless.
     warnings: list[Warning_] = [
-        MissingHolidaysWarning(year=year)
-        for year in sorted({bucket.start.year for bucket in buckets})
-        if not config.has_holidays_for(year)
+        MissingHolidaysWarning(year=year) for year in sorted(priced_years) if not config.has_holidays_for(year)
     ]
     if first_untariffed is not None:
         warnings.append(NoTariffWarning(since=first_untariffed))
