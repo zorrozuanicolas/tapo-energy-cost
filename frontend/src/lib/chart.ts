@@ -45,7 +45,8 @@ export function niceScale(maxValue: number): Scale {
   return { top: step * count, ticks };
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
+/** 7 is "07". */
+export const pad = (n: number) => String(n).padStart(2, "0");
 
 export interface BucketText {
   /** Under the bar. Empty when the axis would be too crowded. */
