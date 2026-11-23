@@ -1,3 +1,6 @@
+import { useRef, useState } from "react";
+
+import { cx } from "../lib/cx";
 import { offsetForDate, type PeriodRange, pickerBound, pickerValue, previousPeriodEnd, type View } from "../lib/period";
 import { Icon } from "./Icon";
 
@@ -49,6 +52,16 @@ export function PeriodNavigator({ view, offset, range, today, earliest, onOffset
   const canGoBack = earliest !== null && previousPeriodEnd(range) >= earliest;
   const canGoForward = offset < 0;
 
+  const pickerRef = useRef<HTMLInputElement>(null);
+  // The focus ring and the highlighted segment of the field are for keyboard users: after a mouse click they
+  // stay hidden until the keyboard is used again or the field loses focus.
+  const [clicked, setClicked] = useState(false);
+
+  const openPicker = () => {
+    setClicked(true);
+    pickerRef.current?.showPicker?.(); // missing in old browsers and in jsdom
+  };
+
   const pick = (value: string) => {
     if (!value) return; // the input was cleared
     const target = offsetForDate(view, value, today);
@@ -61,15 +74,28 @@ export function PeriodNavigator({ view, offset, range, today, earliest, onOffset
     <div role="group" aria-label="Navegar por el historial" className="flex flex-wrap items-center gap-2">
       <ArrowButton direction="previous" disabled={!canGoBack} onClick={() => onOffsetChange(offset - 1)} />
       <ArrowButton direction="next" disabled={!canGoForward} onClick={() => onOffsetChange(offset + 1)} />
-      <label className="flex min-h-11 items-center gap-2 rounded-xl border border-control bg-surface px-3 text-sm font-bold">
+      {/* A click anywhere on the control opens the picker: the browser forwards a click on the label to the input.
+          One focus ring goes around the whole control: the input's own ring would be a box inside the border. */}
+      <label
+        onPointerDown={() => setClicked(true)} // before the browser focuses the field, so nothing flashes while pressing
+        className={cx(
+          "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-control bg-surface px-3 text-sm font-bold",
+          !clicked && "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink",
+        )}
+      >
         {PICK_LABEL[view]}
         <input
+          ref={pickerRef}
           type={view === "mensual" ? "month" : "date"}
+          data-clicked={clicked || undefined} // index.css hides the highlighted segment while this is set
+          onClick={openPicker}
+          onKeyDown={() => setClicked(false)}
+          onBlur={() => setClicked(false)}
           value={pickerValue(range)}
           min={earliest ? pickerBound(view, earliest) : undefined}
           max={pickerBound(view, today)}
           onChange={(event) => pick(event.target.value)}
-          className="min-h-9 bg-transparent text-sm font-semibold text-ink"
+          className="min-h-9 cursor-pointer bg-transparent text-sm font-semibold text-ink focus-visible:outline-none"
         />
       </label>
       {offset !== 0 && (

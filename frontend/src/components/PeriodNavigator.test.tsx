@@ -105,6 +105,26 @@ describe("PeriodNavigator picker", () => {
     expect(onOffsetChange).toHaveBeenCalledExactlyOnceWith(0);
   });
 
+  it("opens the picker when the label is clicked, not only the input", async () => {
+    const showPicker = vi.fn();
+    HTMLInputElement.prototype.showPicker = showPicker; // jsdom does not have it
+    const { user } = setup({ view: "hoy" });
+    await user.click(screen.getByText("Ir al día"));
+    expect(showPicker).toHaveBeenCalledOnce();
+  });
+
+  it("marks the input as clicked until the keyboard is used", async () => {
+    const { user } = setup({ view: "hoy" });
+    const input = screen.getByLabelText("Ir al día");
+    expect(input).not.toHaveAttribute("data-clicked");
+
+    await user.click(input);
+    expect(input).toHaveAttribute("data-clicked");
+
+    await user.keyboard("{ArrowUp}");
+    expect(input).not.toHaveAttribute("data-clicked");
+  });
+
   it("limits the input between the first day with data and today", () => {
     setup({ view: "hoy", earliest: "2026-10-05" });
     const input = screen.getByLabelText("Ir al día");
