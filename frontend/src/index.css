@@ -20,6 +20,8 @@
   --color-track: #e6eae5;
   --color-seg: #e7eae4;
   --color-seg-text: #3e4b45;
+  --color-grid: #e5e8e3;
+  --color-tip-muted: #c9d3cd; /* secondary text on the dark tooltip */
 
   /* Tariff bands, lightest to darkest */
   --color-band-valle: #d6e0da;
