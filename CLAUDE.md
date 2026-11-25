@@ -5,7 +5,7 @@ Guidance for Claude Code when working in this repository.
 ## What this is
 
 Monitor for TP-Link Tapo P110/P115 smart plugs, priced with UTE's *Plan Inteligente Hogares*
-(Uruguay's three-band tariff). Planned stack: FastAPI + SQLite backend, React + Vite + Tailwind
+(Uruguay's three-band tariff). Stack: FastAPI + SQLite backend, React + Vite + Tailwind
 frontend, Docker Compose. The project is being rebuilt step by step as a portfolio piece; see
 `docs/decisions/` for the reasoning behind each design choice.
 
@@ -45,4 +45,11 @@ Frontend (run from `frontend/`; npm is the package manager, Node 22):
 - `npm run check`: lint, format and import order (Biome); `npm run format` fixes them
 - `npm run build`: type check (strict) and production build
 
-Docker commands are added as that part is built.
+Docker (run from the repository root):
+
+- `docker compose up -d --build`: build and start the app at http://localhost:8080
+- `docker compose ps` / `docker compose logs backend`: state and logs
+- `docker compose down`: stop it (`data/` is kept)
+
+Compose reads the root `.env`, not `backend/.env`. Before starting it, make sure that file does not point to
+real plugs that something else is polling.
