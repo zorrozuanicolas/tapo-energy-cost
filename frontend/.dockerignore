@@ -1,0 +1,7 @@
+# Installed and built inside the image
+node_modules/
+dist/
+
+# Local settings must not leak into the build
+.env
+.env.*
