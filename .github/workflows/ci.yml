@@ -43,3 +43,37 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+
+  # The images build and the app works as a whole, with mock plugs: there is no .env here.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The backend runs as user 1000, which must be able to write to the database folder.
+      - run: mkdir data && sudo chown 1000:1000 data
+      # Fails if a container exits or never becomes healthy.
+      - run: docker compose up -d --build --wait --wait-timeout 120
+      - name: Check the app through nginx
+        run: |
+          curl -fsS -o /dev/null http://localhost:8080/
+          curl -fsS http://localhost:8080/api/health
+          # The stream never ends, so curl gives up after 5 s; a reading must have arrived by then.
+          curl -fsS -N --max-time 5 http://localhost:8080/api/live > live.txt || true
+          grep -m 1 '^data: ' live.txt
+      - name: Stop the backend while a live stream is open
+        run: |
+          curl -fsS -N --max-time 30 http://localhost:8080/api/live > /dev/null 2>&1 &
+          sleep 3
+          docker compose stop backend
+          code=$(docker inspect --format '{{.State.ExitCode}}' "$(docker compose ps --all --quiet backend)")
+          echo "backend exit code: $code"
+          # 137 would mean Docker had to kill it before it could close the database.
+          test "$code" = 0
+      # The Raspberry Pi is ARM: emulate it to check that both images still build for it.
+      - uses: docker/setup-qemu-action@v4.4.0
+        with:
+          platforms: arm64
+      - run: docker build --platform linux/arm64 backend
+      - run: docker build --platform linux/arm64 frontend
+      - if: failure()
+        run: docker compose logs
