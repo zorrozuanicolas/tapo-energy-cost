@@ -60,6 +60,10 @@ jobs:
           # The stream never ends, so curl gives up after 5 s; a reading must have arrived by then.
           curl -fsS -N --max-time 5 http://localhost:8080/api/live > live.txt || true
           grep -m 1 '^data: ' live.txt
+      - name: Back up the database while the app runs
+        run: |
+          scripts/backup.sh
+          gzip --test data/backups/tapo-*.db.gz
       - name: Stop the backend while a live stream is open
         run: |
           curl -fsS -N --max-time 30 http://localhost:8080/api/live > /dev/null 2>&1 &
