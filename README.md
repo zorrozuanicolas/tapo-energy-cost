@@ -52,8 +52,78 @@ root folder (it is ignored by git):
 | `TIMEZONE`, or the code (after `git pull`) | `docker compose up -d --build` |
 | A file in `config/` | `docker compose restart backend` |
 
-Only the dashboard's port is published, and **there is no login**: keep it on your home network. The reasoning behind
-this setup is in [0014](docs/decisions/0014-docker-deployment.md).
+Only the dashboard's port is published, and **there is no login**: keep it on your home network, or add one as
+described in [Remote access](#remote-access). The reasoning behind this setup is in
+[0014](docs/decisions/0014-docker-deployment.md).
+
+### Remote access
+
+Optional: reach the dashboard from outside your home through a Cloudflare Tunnel, without opening a router port. You
+need a Cloudflare account and a domain whose DNS Cloudflare manages. `energy.example.com` stands for your address,
+and the names in Cloudflare's dashboard may differ slightly.
+
+1. **Add the login first.** In Zero Trust, create a self-hosted **Access** application for `energy.example.com`,
+   with an *Allow* policy that includes only your email address (a one-time PIN by email works as the login method).
+2. Create a **Tunnel** (cloudflared) and give it a public hostname: `energy.example.com`, with the service
+   `http://frontend:8080`.
+3. In `.env`, set the tunnel's token (it is a secret) and enable the tunnel:
+
+   ```
+   TUNNEL_TOKEN=<the token>
+   COMPOSE_PROFILES=tunnel
+   ```
+
+4. Run `docker compose up -d`.
+5. **Check it:** open the address in a private browser window, for example on a phone using mobile data. It must ask
+   you to log in before showing anything. If it does not, run `docker compose stop cloudflared` and review step 1.
+
+If the tunnel does not connect, see `docker compose logs cloudflared`.
+
+### Backups
+
+With the app running:
+
+```sh
+scripts/backup.sh                    # on Windows: docker compose exec backend python -m app.backup
+scripts/backup.sh --keep-days 30     # the default is 14
+```
+
+It writes `data/backups/tapo-<date and time in UTC>.db.gz`, safely while the app keeps running, checks it, and deletes
+older backups.
+
+**Every day,** on Linux, add a line like this with `crontab -e`, with your own paths:
+
+```
+15 3 * * * /home/<user>/tapo-energy-cost/scripts/backup.sh >> /home/<user>/tapo-backup.log 2>&1
+```
+
+Look at that log now and then: nothing else reports a failed backup.
+
+**Copy them to another machine.** The backups are on the same disk as the database, so a disk failure takes both.
+For example, from your PC:
+
+```sh
+scp -r <user>@<address>:tapo-energy-cost/data/backups .
+```
+
+**Restore** a backup (change the file name). The current database is renamed to `old-tapo.db`, with its `-wal` and
+`-shm` files, replacing the one kept by an earlier restore. Leaving those two files next to a restored database could
+damage it.
+
+```sh
+docker compose stop backend
+docker compose run --rm --no-deps -e BACKUP=tapo-20261125-061500Z.db.gz backend sh -ec '
+  cd /srv/data
+  gzip -t "backups/$BACKUP"
+  for f in tapo.db tapo.db-wal tapo.db-shm; do [ ! -e "$f" ] || mv "$f" "old-$f"; done
+  gunzip -c "backups/$BACKUP" > tapo.db'
+docker compose start backend
+```
+
+With real plugs, the app then recovers up to a week of the hours recorded after the backup.
+
+Without Docker, `uv run python -m app.backup` in `backend/` backs up the database set there. The reasoning behind
+backups and remote access is in [0015](docs/decisions/0015-remote-access-and-backups.md).
 
 The two sections below run each part without Docker, for development. They use their own settings file
 (`backend/.env`) and database.
