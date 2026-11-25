@@ -62,7 +62,7 @@ We will run the app with Docker Compose, as two containers.
 - Fake and real readings go to the same file, `data/tapo.db`. Delete it before changing from mock plugs to real ones.
 - An open dashboard at shutdown leaves a `CancelledError` traceback in the backend's log, followed by
   `Application shutdown complete`. It is expected.
-- The logs belong to the container: recreating it, for example on an update, discards them. Their size is not
-  limited.
+- Each container keeps at most three log files of 10 MB, so old lines are discarded. The logs also belong to the
+  container: recreating it, for example on an update, discards them all.
 - The images were tested on Docker Desktop (x86), and the ARM ones only under emulation. Nothing has run on a real
   Raspberry Pi yet, and no container has talked to a real plug.
