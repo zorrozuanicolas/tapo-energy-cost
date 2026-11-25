@@ -1,0 +1,35 @@
+# The whole app: `docker compose up -d --build`, then open http://localhost:8080.
+# Without a .env file (see .env.example) the backend uses mock plugs and never touches real ones.
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    # These win over .env: the paths must match the volumes below.
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////srv/data/tapo.db
+      CONFIG_DIR: /srv/config
+    volumes:
+      # Tariffs, holidays and plugs: edit and restart, no rebuild needed.
+      - ./config:/srv/config:ro
+      # The database. On Linux this folder must be writable by user 1000.
+      - ./data:/srv/data
+    # Time to stop cleanly before Docker kills the process.
+    stop_grace_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_TIMEZONE: ${TIMEZONE:-America/Montevideo}
+    restart: unless-stopped
+    # The only published port: the API is reachable through it, under /api.
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      - backend
+    # Stop at once. The image's default waits for open connections, and a live stream never ends;
+    # nginx stores nothing, so there is nothing to finish.
+    stop_signal: SIGTERM
