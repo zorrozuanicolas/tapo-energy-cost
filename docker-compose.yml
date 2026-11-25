@@ -20,6 +20,8 @@ services:
     environment:
       DATABASE_URL: sqlite+aiosqlite:////srv/data/tapo.db
       CONFIG_DIR: /srv/config
+      # Only the tunnel needs this secret from .env.
+      TUNNEL_TOKEN: ""
     volumes:
       # Tariffs, holidays and plugs: edit and restart, no rebuild needed.
       - ./config:/srv/config:ro
@@ -43,3 +45,17 @@ services:
     # Stop at once. The image's default waits for open connections, and a live stream never ends;
     # nginx stores nothing, so there is nothing to finish.
     stop_signal: SIGTERM
+
+  # Optional remote access through Cloudflare, started only with `--profile tunnel`. It connects
+  # outwards, so the router needs no open port. The app has no login: protect the public address with
+  # Cloudflare Access first, and point the tunnel to http://frontend:8080.
+  cloudflared:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:2026.11.2
+    restart: unless-stopped
+    logging: *logging
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - frontend
