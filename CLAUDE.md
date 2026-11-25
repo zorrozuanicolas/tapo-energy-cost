@@ -50,6 +50,7 @@ Docker (run from the repository root):
 - `docker compose up -d --build`: build and start the app at http://localhost:8080
 - `docker compose ps` / `docker compose logs backend`: state and logs
 - `docker compose down`: stop it (`data/` is kept)
+- `scripts/backup.sh`: back up the running app's database to `data/backups/`
 
 Compose reads the root `.env`, not `backend/.env`. Before starting it, make sure that file does not point to
 real plugs that something else is polling.
