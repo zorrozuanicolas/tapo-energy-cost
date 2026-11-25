@@ -1,0 +1,11 @@
+# Never send secrets or runtime data to the Docker build
+.env
+.env.*
+data/
+
+# Local environment and caches
+.venv/
+**/__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
