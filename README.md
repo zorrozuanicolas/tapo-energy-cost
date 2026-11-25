@@ -17,6 +17,47 @@ and demo data.
 
 ![Month: twelve months of consumption, with the selected month described in the cards and the table](docs/images/dashboard-month.png)
 
+## Running with Docker
+
+The quickest way to run the whole app. You need Docker with Compose.
+
+```sh
+docker compose up -d --build     # then open http://localhost:8080
+docker compose ps                # is it running and healthy?
+docker compose logs --since 24h backend
+docker compose down              # stop it; the data stays in ./data
+```
+
+On Linux, such as a Raspberry Pi with a 64-bit OS, create the database folder first. The app runs as user 1000, which
+must own it:
+
+```sh
+mkdir -p data && sudo chown 1000:1000 data
+```
+
+Without any configuration the plugs are **fake**. To change that, copy [`.env.example`](.env.example) to `.env` in the
+root folder (it is ignored by git):
+
+- **Demo data:** set `SEED_DEMO_DAYS=30`. It only fills a database with no energy data yet.
+- **Real plugs:** set `TAPO_MOCK=false`, `TAPO_USERNAME` and `TAPO_PASSWORD` (keep the password in single quotes).
+  Fake readings are stored in the same database, so if you tried the app with fake plugs, stop it and delete `data/`
+  first.
+
+> **Only one machine may poll the same plugs.** Do not run in real mode on your PC while another machine, such
+> as a Raspberry Pi, is already polling them.
+
+| After changing | Run |
+|---|---|
+| `.env` | `docker compose up -d` |
+| `TIMEZONE`, or the code (after `git pull`) | `docker compose up -d --build` |
+| A file in `config/` | `docker compose restart backend` |
+
+Only the dashboard's port is published, and **there is no login**: keep it on your home network. The reasoning behind
+this setup is in [0014](docs/decisions/0014-docker-deployment.md).
+
+The two sections below run each part without Docker, for development. They use their own settings file
+(`backend/.env`) and database.
+
 ## Running the backend
 
 You need Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
