@@ -7,6 +7,11 @@ time-of-day tariff: Valle, Llano and Punta).
 > 🚧 **Work in progress.** This project is being rebuilt step by step, with every design decision
 > documented.
 
+## Public demo
+
+Try the dashboard at [tapo.zorrozuanicolas.com](https://tapo.zorrozuanicolas.com). It needs no backend or plugs: all
+its data is made up in your browser ([why](docs/decisions/0018-public-demo.md)).
+
 ## What it looks like
 
 Three tabs (today, week and month) show what each plug used and cost, a chart of the consumption by hour, day or
@@ -218,6 +223,8 @@ npm run dev             # the app at http://localhost:5173
 npm test                # run the tests
 npm run check           # lint, format and import order (Biome)
 npm run build           # type check (strict) and production build
+npm run dev:demo        # the demo, which needs no backend
+npm run build:demo      # the demo's production build, as Vercel runs it
 ```
 
 The dev server forwards `/api` to the backend, so no CORS setup is needed. To see the screen with no real plug,
