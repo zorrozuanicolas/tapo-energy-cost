@@ -56,6 +56,20 @@ Only the dashboard's port is published, and **there is no login**: keep it on yo
 described in [Remote access](#remote-access). The reasoning behind this setup is in
 [0014](docs/decisions/0014-docker-deployment.md).
 
+### Logs
+
+Docker keeps the last 30 MB of each container's log, and discards it when the container is recreated, for example on
+an update. On Linux the logs can go to the systemd journal instead, with the rest of the machine's logs. Add this to
+`.env` and run `docker compose up -d`:
+
+```
+COMPOSE_FILE=docker-compose.yml:docker-compose.journald.yml
+```
+
+`docker compose logs` works as before. `journalctl CONTAINER_NAME=tapo-energy-cost-backend-1` reads the same lines,
+including those of earlier containers. How long they are kept depends on the journal's settings, and they survive a
+reboot only if the journal is persistent.
+
 ### Remote access
 
 Optional: reach the dashboard from outside your home through a Cloudflare Tunnel, without opening a router port. You
