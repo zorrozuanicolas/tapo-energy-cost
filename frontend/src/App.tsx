@@ -53,6 +53,12 @@ export default function App() {
         <PeriodTabs view={view} onChange={changeView} />
       </header>
 
+      {import.meta.env.VITE_DEMO === "true" && (
+        <p className="rounded-xl border border-line bg-soft px-3.5 py-2.5 text-sm text-muted">
+          Demo con datos de ejemplo: no son consumos reales.
+        </p>
+      )}
+
       <main>
         <div role="tabpanel" id={PERIOD_PANEL_ID} aria-labelledby={tabId(view)} className="flex flex-col gap-4">
           <PeriodNavigator

@@ -1,3 +1,4 @@
+import { demoConsumption, demoRange, demoTariff } from "./demo/api";
 import type { ConsumptionResponse, DataRange, Granularity, Health, Outlet, Tariff } from "./types";
 
 // Empty in development and behind one proxy (same origin); the backend URL when it is elsewhere.
@@ -43,9 +44,16 @@ export const fetchHealth = (signal?: AbortSignal) => get<Health>("/api/health", 
 
 export const fetchOutlets = (signal?: AbortSignal) => get<Outlet[]>("/api/outlets", undefined, signal);
 
-export const fetchRange = (signal?: AbortSignal) => get<DataRange>("/api/range", undefined, signal);
+// A demo build has no backend: it answers these three itself, from `demo/`. The condition is written out each
+// time so that Vite can replace it while building, which leaves the demo code out of a normal build.
+// `async` makes a demo error a rejected promise, like a failed request.
+export const fetchRange = async (signal?: AbortSignal) =>
+  import.meta.env.VITE_DEMO === "true" ? demoRange() : get<DataRange>("/api/range", undefined, signal);
 
-export const fetchTariff = (date: string, signal?: AbortSignal) => get<Tariff>("/api/tariff", { date }, signal);
+export const fetchTariff = async (date: string, signal?: AbortSignal) =>
+  import.meta.env.VITE_DEMO === "true" ? demoTariff(date) : get<Tariff>("/api/tariff", { date }, signal);
 
-export const fetchConsumption = (granularity: Granularity, from: string, to: string, signal?: AbortSignal) =>
-  get<ConsumptionResponse>("/api/consumption", { granularity, from, to }, signal);
+export const fetchConsumption = async (granularity: Granularity, from: string, to: string, signal?: AbortSignal) =>
+  import.meta.env.VITE_DEMO === "true"
+    ? demoConsumption(granularity, from, to)
+    : get<ConsumptionResponse>("/api/consumption", { granularity, from, to }, signal);
