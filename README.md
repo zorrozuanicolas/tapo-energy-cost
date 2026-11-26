@@ -4,13 +4,15 @@ Measures how much energy the appliances plugged into TP-Link Tapo P110/P115 smar
 calculates what that energy costs under UTE's *Plan Inteligente Hogares* (Uruguay's three-band
 time-of-day tariff: Valle, Llano and Punta).
 
-> 🚧 **Work in progress.** This project is being rebuilt step by step, with every design decision
-> documented.
+**[Try the live demo](https://tapo.zorrozuanicolas.com)**: it needs no plugs or installation, and all its data is
+made up in your browser ([why](docs/decisions/0018-public-demo.md)). The dashboard is in Spanish.
 
-## Public demo
-
-Try the dashboard at [tapo.zorrozuanicolas.com](https://tapo.zorrozuanicolas.com). It needs no backend or plugs: all
-its data is made up in your browser ([why](docs/decisions/0018-public-demo.md)).
+- **Backend:** FastAPI and SQLite. It reads each plug every 10 seconds, stores the energy by hour, prices it when it
+  is read, and streams the live power.
+- **Frontend:** React, TypeScript and Tailwind, with views by day, week and month.
+- **Running it:** Docker Compose, in daily use on a Raspberry Pi, with optional remote access through Cloudflare and
+  database backups.
+- **Why it is built this way:** each design decision is recorded in [`docs/decisions/`](docs/decisions/).
 
 ## What it looks like
 
