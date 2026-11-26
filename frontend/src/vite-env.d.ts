@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   /** Time zone for "today" (default America/Montevideo). It must match the backend's TIMEZONE. */
   readonly VITE_TIMEZONE?: string;
+  /** "true" in the demo build, which has no backend (`.env.demo`). */
+  readonly VITE_DEMO?: string;
 }
 
 interface ImportMeta {

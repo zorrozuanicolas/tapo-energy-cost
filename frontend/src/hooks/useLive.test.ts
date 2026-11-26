@@ -45,6 +45,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("useLive", () => {
@@ -99,5 +100,29 @@ describe("useLive", () => {
     expect(source().close).not.toHaveBeenCalled();
     unmount();
     expect(source().close).toHaveBeenCalledOnce();
+  });
+});
+
+describe("useLive in a demo build", () => {
+  it("gives made-up readings of every plug, without a stream", () => {
+    vi.stubEnv("VITE_DEMO", "true");
+
+    const { result } = renderHook(() => useLive());
+
+    expect(FakeEventSource.instances).toHaveLength(0);
+    expect(result.current.connected).toBe(true);
+    expect(Object.keys(result.current.readings)).toEqual(["1", "2"]);
+  });
+
+  it("stops its timer when the component goes away", () => {
+    vi.stubEnv("VITE_DEMO", "true");
+    vi.useFakeTimers();
+
+    const { unmount } = renderHook(() => useLive());
+    expect(vi.getTimerCount()).toBe(1);
+    unmount();
+
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
   });
 });

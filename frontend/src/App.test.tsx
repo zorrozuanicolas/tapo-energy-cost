@@ -121,6 +121,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 function renderApp() {
@@ -316,5 +317,26 @@ describe("App", () => {
       streamOpens(); // the browser reconnected by itself
       expect(power("Ahora: 83 W")).toBeInTheDocument();
     });
+  });
+});
+
+describe("App in a demo build", () => {
+  it("says the data is made up, and shows it without a backend", async () => {
+    vi.stubEnv("VITE_DEMO", "true");
+    renderApp();
+    await detailTable();
+
+    expect(screen.getByText("Demo con datos de ejemplo: no son consumos reales.")).toBeInTheDocument();
+    expect(within(summary()).getByText("Heladera")).toBeInTheDocument();
+    expect(await within(summary()).findAllByText(/^Ahora: .+ W$/)).toHaveLength(2);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(FakeEventSource.current).toBeUndefined();
+  });
+
+  it("is not announced in a normal build", async () => {
+    renderApp();
+    await detailTable();
+
+    expect(screen.queryByText(/Demo con datos de ejemplo/)).not.toBeInTheDocument();
   });
 });

@@ -92,3 +92,26 @@ describe("VITE_API_URL", () => {
     expect(fake.mock.calls[0]?.[0]).toBe("https://api.example.com/api/range");
   });
 });
+
+describe("a demo build", () => {
+  test("answers the dashboard's requests without a network", async () => {
+    vi.stubEnv("VITE_DEMO", "true");
+    const fake = stubFetch(json({}));
+    const { fetchRange } = await import("./api");
+
+    const range = await fetchRange();
+    const tariff = await fetchTariff("2026-11-12");
+    const day = await fetchConsumption("hour", "2026-11-12", "2026-11-13");
+
+    expect(range.earliest).toBe("2026-01-01");
+    expect(tariff.valid_from).toBe("2026-01-01");
+    expect(day.buckets).toHaveLength(24);
+    expect(fake).not.toHaveBeenCalled();
+  });
+
+  test("an error is a rejected promise, like a failed request", async () => {
+    vi.stubEnv("VITE_DEMO", "true");
+
+    await expect(fetchTariff("2025-12-31")).rejects.toMatchObject({ status: 404 });
+  });
+});
