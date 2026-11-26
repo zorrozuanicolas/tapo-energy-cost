@@ -120,6 +120,17 @@ For example, from your PC:
 scp -r <user>@<address>:tapo-energy-cost/data/backups .
 ```
 
+**Or upload them every night** with [rclone](https://rclone.org/drive/), for example to Google Drive. Set up a remote
+called `gdrive` (create your own Google client ID, and choose the `drive.file` scope, which reaches only the files
+rclone created). Then use this line in `crontab -e` instead of the one above:
+
+```
+15 3 * * * { /home/<user>/tapo-energy-cost/scripts/backup.sh && /usr/bin/rclone copy /home/<user>/tapo-energy-cost/data/backups gdrive:tapo-backups --include 'tapo-*.db.gz' -v && echo 'Upload finished' || echo 'Backup or upload FAILED'; } 2>&1 | logger -t tapo-backup
+```
+
+`journalctl -t tapo-backup` shows the results. `rclone copy` never deletes from the destination, so old backups
+accumulate there.
+
 **Restore** a backup (change the file name). The current database is renamed to `old-tapo.db`, with its `-wal` and
 `-shm` files, replacing the one kept by an earlier restore. Leaving those two files next to a restored database could
 damage it.
@@ -136,8 +147,13 @@ docker compose start backend
 
 With real plugs, the app then recovers up to a week of the hours recorded after the backup.
 
+**Moving to another machine:** stop the app on the old one, back up, and copy the file to `data/backups/` on the new
+one. Restore it there **without the last command**, as a backend with no `.env` uses fake plugs and would add their
+readings to your history. Set the real plugs in `.env`, then run `docker compose up -d`.
+
 Without Docker, `uv run python -m app.backup` in `backend/` backs up the database set there. The reasoning behind
-backups and remote access is in [0015](docs/decisions/0015-remote-access-and-backups.md).
+backups and remote access is in [0015](docs/decisions/0015-remote-access-and-backups.md), and the setup of a
+Raspberry Pi host in [0017](docs/decisions/0017-raspberry-pi-host.md).
 
 The two sections below run each part without Docker, for development. They use their own settings file
 (`backend/.env`) and database.
