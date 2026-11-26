@@ -44,6 +44,7 @@ Frontend (run from `frontend/`; npm is the package manager, Node 22):
 - `npm test`: run the tests
 - `npm run check`: lint, format and import order (Biome); `npm run format` fixes them
 - `npm run build`: type check (strict) and production build
+- `npm run dev:demo` / `npm run build:demo`: the public demo, which needs no backend (`src/demo/`, ADR 0018)
 
 Docker (run from the repository root):
 
