@@ -1,0 +1,16 @@
+# Send the containers' logs to the systemd journal (Linux) instead of Docker's own files, for
+# example to collect them with the rest of the machine's logs. To use it, set in .env:
+# COMPOSE_FILE=docker-compose.yml:docker-compose.journald.yml
+x-journald: &journald
+  driver: journald
+  options:
+    # The journal shows the container's name instead of its ID.
+    tag: "{{.Name}}"
+
+services:
+  backend:
+    logging: *journald
+  frontend:
+    logging: *journald
+  cloudflared:
+    logging: *journald
