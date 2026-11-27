@@ -41,8 +41,8 @@ These settings live on the host and are not applied by anything in this reposito
 
 **Backups**
 
-- `cron` runs `scripts/backup.sh` every night, then copies the backups to Google Drive with `rclone` (the command is in
-  the README). The result goes to the journal under the tag `tapo-backup`.
+- `cron` runs `scripts/offsite-backup.sh` every night: a backup, then its copy to Google Drive with `rclone` (see the
+  [deployment guide](../deployment.md#backups)). The result goes to the journal under the tag `tapo-backup`.
 - `rclone` uses its own Google client ID, as its shared one is being retired, with the `drive.file` permission: it can
   reach only the files it created. The Google app must be published, or the authorisation expires after a week.
 - Drive keeps 90 days of daily copies in one folder and the copy of the 1st of each month in another; the Pi keeps
@@ -75,5 +75,6 @@ These settings live on the host and are not applied by anything in this reposito
 - Damage noticed after 90 days can be undone only from a monthly copy.
 - The cause of the Wi-Fi losses is unknown.
 - Checked on the Pi: the first image build (3 minutes), a restore from a backup file, a restart of the machine, the
-  nightly backup and upload running by themselves, and the tunnel with its login. Not yet seen: a monthly copy, the
-  deletion of an old copy, and a restore from a copy in Drive.
+  nightly backup and upload running by themselves, a backup downloaded from Drive opened by a temporary container
+  (its history matched the live one), and the tunnel with its login. Not yet seen: a monthly copy and the deletion
+  of an old copy.

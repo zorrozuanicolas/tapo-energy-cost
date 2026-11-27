@@ -20,7 +20,7 @@ def make_database(path: Path, values: list[int]) -> None:
 
 
 def restored_values(backup: Path, tmp_path: Path) -> list[int]:
-    """Restore a backup as the README does (unzip it) and read it."""
+    """Restore a backup as the deployment guide does (unzip it) and read it."""
     restored = tmp_path / "restored.db"
     restored.write_bytes(gzip.decompress(backup.read_bytes()))
     with closing(sqlite3.connect(restored)) as db:
