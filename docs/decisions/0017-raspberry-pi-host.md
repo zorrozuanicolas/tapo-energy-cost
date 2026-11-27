@@ -45,7 +45,8 @@ These settings live on the host and are not applied by anything in this reposito
   the README). The result goes to the journal under the tag `tapo-backup`.
 - `rclone` uses its own Google client ID, as its shared one is being retired, with the `drive.file` permission: it can
   reach only the files it created. The Google app must be published, or the authorisation expires after a week.
-- Drive keeps every backup, and the Pi the last 14 days.
+- Drive keeps 90 days of daily copies in one folder and the copy of the 1st of each month in another; the Pi keeps
+  the last 14 days.
 
 ## Alternatives considered
 
@@ -69,7 +70,10 @@ These settings live on the host and are not applied by anything in this reposito
 - Vector reads only the current boot with this version of `systemd`, so the last lines before a restart or a crash
   stay only on the disk (`journalctl -b -1`). Lines written during a short network loss did arrive afterwards.
 - Nothing warns when the backup or the upload fails: the journal has to be read.
+- Each backup includes up to 60 days of raw readings, so it is expected to level off near 22 MB (estimated from the
+  growth of the first day). Keeping every copy would take about 8 GB a year.
+- Damage noticed after 90 days can be undone only from a monthly copy.
 - The cause of the Wi-Fi losses is unknown.
-- Checked on the Pi: the first image build (3 minutes), a restore from a backup file, a restart of the machine, one
-  backup and upload run by hand with `cron`'s environment, and the tunnel with its login. Not yet seen: the nightly run
-  by itself, and a restore from a copy in Drive.
+- Checked on the Pi: the first image build (3 minutes), a restore from a backup file, a restart of the machine, the
+  nightly backup and upload running by themselves, and the tunnel with its login. Not yet seen: a monthly copy, the
+  deletion of an old copy, and a restore from a copy in Drive.

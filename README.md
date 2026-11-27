@@ -132,11 +132,12 @@ called `gdrive` (create your own Google client ID, and choose the `drive.file` s
 rclone created). Then use this line in `crontab -e` instead of the one above:
 
 ```
-15 3 * * * { /home/<user>/tapo-energy-cost/scripts/backup.sh && /usr/bin/rclone copy /home/<user>/tapo-energy-cost/data/backups gdrive:tapo-backups --include 'tapo-*.db.gz' -v && echo 'Upload finished' || echo 'Backup or upload FAILED'; } 2>&1 | logger -t tapo-backup
+15 3 * * * { /home/<user>/tapo-energy-cost/scripts/backup.sh && /usr/bin/rclone copy /home/<user>/tapo-energy-cost/data/backups gdrive:tapo-backups --include 'tapo-*.db.gz' -v && /usr/bin/rclone copy /home/<user>/tapo-energy-cost/data/backups gdrive:tapo-monthly --include 'tapo-??????01-*.db.gz' -v && /usr/bin/rclone delete gdrive:tapo-backups --min-age 90d --include 'tapo-*.db.gz' --drive-use-trash=false -v && echo 'Upload finished' || echo 'Backup or upload FAILED'; } 2>&1 | logger -t tapo-backup
 ```
 
-`journalctl -t tapo-backup` shows the results. `rclone copy` never deletes from the destination, so old backups
-accumulate there.
+It keeps the daily copies of the last 90 days in `tapo-backups`, and the backups dated the 1st of each month
+permanently in `tapo-monthly`. Old daily copies are deleted for good, without going to the trash. A month with no
+backup on the 1st (UTC) has no monthly copy. `journalctl -t tapo-backup` shows the results.
 
 **Restore** a backup (change the file name). The current database is renamed to `old-tapo.db`, with its `-wal` and
 `-shm` files, replacing the one kept by an earlier restore. Leaving those two files next to a restored database could
